@@ -1,65 +1,73 @@
 import Image from "next/image";
+import { BubbleChat } from "./bubbleChat";
+import { ArrowUp } from "lucide-react";
+
+// Types & Interfaces
+type UserChat = {
+  text: string
+  image: string | null
+  time: Date
+}
+
+type AssistantChat = {
+  text: string
+  isTrashRes: boolean         // gatau mau namain apa
+  time: Date
+}
+
+interface AppProps {
+  totalEmissionReduction: number
+  totalPrice: number
+  userChats: UserChat[]
+  assistantChats: AssistantChat[]
+}
+
+// dummy data (replace with actual indexedDB or localStorage yes?)
+const dummyData = {
+  totalEmissionReduction: 0.5,
+  totalPrice: 12000,
+  userChats: [],
+  assistantChats: []
+} as AppProps
+
 
 export default function Home() {
+
+  const ChatsContainer = (
+    <>
+        <BubbleChat type="assistant" text="Ini contoh chat awalan otomatis di generasi oleh system." time="10:20" />
+        <BubbleChat type="user" text="Contoh chat menggunakan gambar landscape." time="10:21" image="https://kadujayaperkasa.com/images/blog/b058a-botol%20plastik2.jpg" />
+        <BubbleChat type="user" text="Contoh chat menggunakan gambar potrait." time="10:21" image="https://pict.sindonews.com/size/640/salsabila/photo/2021/06/11/1/14898/G-sampah-botol-plastik-jadi-penggerak-ekonomi-nax.jpg" />
+        <BubbleChat type="user" text="Contoh chat menggunakan gambar potrait." time="10:21" image="https://pict.sindonews.com/size/640/salsabila/photo/2021/06/11/1/14898/G-sampah-botol-plastik-jadi-penggerak-ekonomi-nax.jpg" />
+        <BubbleChat type="assistant" text="Contoh AI ketika response gambar tentang sampah" time="10:22" isFeedbackNeeded={true} />
+        <BubbleChat type="assistant_feedback"  />
+    </>
+  )
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    // width and height can be changed later
+    <div className="w-screen h-screen flex justify-center">
+      <div className="flex items-center fixed px-5 top-0 inset-0 h-15 w-full bg-background justify-between">
+        <p className="text-xl font-semibold text-primary">App Name</p>
+        <div className="flex gap-2">
+          <div className="bg-primary px-3 py-1 rounded-full w-fit">0.05 CO₂-eq</div>
+          <div className="bg-primary px-3 py-1 rounded-full w-fit">Rp.12.267</div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </div>
+
+      <div className="w-full flex flex-col gap-y-3 lg:w-300 h-full pt-17 pb-40 mx-5 sm:mx-10 md:mx-15 lg:mx-auto overflow-y-scroll">
+        {ChatsContainer}
+      </div>
+
+      <div className="px-3 fixed w-screen h-14 bottom-23">
+          <div className="flex gap-2 justify-center items-center w-full h-full">
+              <input className="bg-secondary/90 border-2 border-tertiary backdrop-blur-xl  h-full w-full rounded-full p-5 font-semibold" placeholder="Tanya Jarvis" type="text" />
+              <div className="bg-secondary/90 backdrop-blur-xl border-2 border-tertiary w-14 h-14 flex items-center justify-center rounded-full shrink-0">
+                  <ArrowUp size={30} />
+              </div>
+          </div>
+      </div>
     </div>
   );
 }
+
