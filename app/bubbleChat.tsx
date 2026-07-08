@@ -1,7 +1,11 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { ArrowUp, ThumbsDown, ThumbsUp, ThumbsUpIcon, XIcon } from "lucide-react";
 import React, { useEffect, useState } from "react"
+import { defaultSpring } from "./_lib/spring";
+import { AnimateChangeInHeight } from "./AnimateHeight";
+import Markdown from "react-markdown";
 
 interface BubbleChatProps {
     index?: number
@@ -11,11 +15,15 @@ interface BubbleChatProps {
     image?: string  // user image kalo upload
     isFeedbackNeeded?: boolean  // if dislike button needed
     feedback?: (input: string) => void // optional, used to send feedback. [not implemented] (example: clicking send after writing the actual waste type, this will execute the parent function for sending back the image, undo any changes made, and replace this bubble chat with a new one)
+    setAboutToFeedback?: (input: boolean) => void // to hide the input
 }
 
-export const BubbleChat: React.FC<BubbleChatProps> = ({ type, text, time, image, feedback, isFeedbackNeeded }) => {
-    const [ liked, setLiked ] = useState(false)
-    const [ disliked, setDisliked ] = useState(false)
+
+export const BubbleChat: React.FC<BubbleChatProps> = ({ type, text, time, image, feedback, isFeedbackNeeded, setAboutToFeedback }) => {
+    const [liked, setLiked] = useState(false)
+    const [disliked, setDisliked] = useState(false)
+
+    const [localFeedback, setLocalFeedback] = useState<string | null>(null)
 
     const AIname = "Jarvis"
     const secondStyle = type == "user" ? "bg-secondary rounded-l-xl" : "bg-primary rounded-r-xl"
@@ -23,54 +31,89 @@ export const BubbleChat: React.FC<BubbleChatProps> = ({ type, text, time, image,
 
     const NonFeedbackLayout = (
         <div className="flex flex-col w-full">
-            {type === "assistant" && 
+            {type === "assistant" &&
                 <p className="font-bold text-base text-[#BEC790] pb-1">{AIname}</p>
             }
 
-            <p className="text-[#FFEBF4]">{text}</p>
+            <div className="text-[#FFEBF4] whitespace-pre-wrap">
+                <Markdown>
+                    {text}
+                </Markdown>
+            </div>
 
             {image &&
-                <img className="max-w-80 py-2" src={image}/>   // idk about base64 so this is temporary 
+                <img className="max-w-80 py-2" src={image} />   // idk about base64 so this is temporary 
             }
-            
+
             <p className="self-end text-[#546014] opacity-90 mt-1">{time}</p>
         </div>
     )
 
     const FeedbackLayout = (
-        <div className="flex flex-col w-full">
+        <motion.div
+            initial={{ opacity: 0, x: -100, scale: 0.98 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            transition={defaultSpring}
+            className="flex flex-col w-full">
             <div className="flex justify-between pb-1">
                 <p className="font-bold text-base">Klasifikasi Manual</p>
-                <XIcon onClick={() => setDisliked(false)} />
+                <XIcon onClick={() => {
+                    setDisliked(false);
+                    setAboutToFeedback && setAboutToFeedback(false);
+                }} />
             </div>
 
             <p className="text-[#FFEBF4]">Jelaskan apa tipe sampah yang anda kirim agar {AIname} dapat menjawab ulang dengan akurat.</p>
-            
+
             <div className="flex gap-2 justify-center items-center pt-5">
-                <input className="bg-secondary h-9 w-full rounded-full p-2" type="text" />
-                <div className="bg-secondary w-9 h-9 flex items-center justify-center rounded-full shrink-0">
+                <input 
+                value={localFeedback || ""}
+                onChange={(e) => setLocalFeedback(e.target.value)}
+                className="bg-secondary h-9 w-full rounded-full p-2" type="text" />
+                <button 
+                onClick={() => {
+                    feedback && feedback("SYSTEM FEEDBACK [The user has provided a correction. Determine and adjust accordingly]: " + (localFeedback || ""));
+                    setDisliked(false);
+                    setAboutToFeedback && setAboutToFeedback(false);
+                }}
+                className="bg-secondary w-9 h-9 flex items-center justify-center rounded-full shrink-0">
                     <ArrowUp />
-                </div>
+                </button>
             </div>
-        </div>
+        </motion.div>
     )
 
 
     return (
-        <div className={`max-w-[80%] flex flex-col gap-2 ${mainStyle}`}>
-        <div className={`w-full p-3 rounded-b-xl ${secondStyle}`}>
-            {disliked ?
-                FeedbackLayout :
-                NonFeedbackLayout
+        <motion.div 
+        initial={{ opacity: 0, x: type === "user" ? 50 : -50, scale: 0.9 }}
+        animate={{ opacity: 1, x: 0, scale: 1 }}
+        transition={{
+            ...defaultSpring,
+            scale: {
+                ...defaultSpring,
+                damping: 35
             }
-        </div>
-        
-        {isFeedbackNeeded && !disliked &&
-            <div className="flex gap-4 text-primary text-2xl self-end">
-                <ThumbsDown onClick={() => setDisliked(true)} />
-                <ThumbsUp onClick={() => setLiked(!liked)} className={`${liked ? "" : "fill-transparent"}`} fill="currentColor" />
-            </div>
-        }
-        </div>
+        }}
+        className={`max-w-[80%] flex flex-col gap-2 ${mainStyle}`}>
+            <AnimateChangeInHeight className="">
+                <div className={`w-full p-3 rounded-b-xl ${secondStyle}`}>
+                    {disliked ?
+                        FeedbackLayout :
+                        NonFeedbackLayout
+                    }
+                </div>
+            </AnimateChangeInHeight>
+
+            {isFeedbackNeeded && !disliked &&
+                <div className="flex gap-4 text-primary text-2xl self-end">
+                    <ThumbsDown onClick={() => {
+                        setDisliked(true);
+                        setAboutToFeedback && setAboutToFeedback(true);
+                    }} />
+                    <ThumbsUp onClick={() => setLiked(!liked)} className={`${liked ? "" : "fill-transparent"}`} fill="currentColor" />
+                </div>
+            }
+        </motion.div>
     )
 }

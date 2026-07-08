@@ -1,13 +1,13 @@
 import { Chat, Chats } from "../_types/chats";
 import { initDB } from "./init.db";
 
-export const addChatDB = async ({ type, text, image, isTrashRes, time }: Chat): Promise<void> => {
+export const addChatDB = async ({ type, text, image, feedback, isTrashRes, time }: Chat): Promise<void> => {
     const db = await initDB()
 
     return new Promise((resolve, reject) => {
         const transaction = db.transaction("chats", "readwrite")
         const store = transaction.objectStore("chats")
-        const request = store.add({ type, text, image, isTrashRes, time })
+        const request = store.add({ type, text, image, feedback, isTrashRes, time })
 
         request.onsuccess = () => resolve()
         request.onerror = () => reject("Failed to add chat to DB")
