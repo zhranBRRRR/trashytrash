@@ -1,8 +1,11 @@
+
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { BubbleChat } from "./bubbleChat";
 import { MessageCircle, NotepadText } from "lucide-react";
+import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import Navbar from "./NavbarComponent";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,6 +27,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+
   return (
     <html
       lang="en"
@@ -33,20 +37,12 @@ export default function RootLayout({
         {children}
         
         {/* navbar */}
-        <div className="fixed bottom-0 h-20 bg-tertiary w-screen flex justify-around">
-          <div className="flex flex-col gap-y-1 items-center justify-center">
-            <MessageCircle size={28} />
-            <p className="font-semibold text-base">Chat</p>
-          </div>
-
-          <div className="flex flex-col gap-y-1 items-center justify-center">
-            <NotepadText size={28} />
-            <p className="font-semibold text-base">History</p>
-          </div>
-        </div>
+        <Navbar />
       </body>
 
       {/* navbar */}
     </html>
   );
 }
+
+
