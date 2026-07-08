@@ -1,11 +1,11 @@
 "use client"
 
-import Image from "next/image";
 import { BubbleChat } from "./bubbleChat";
-import { ArrowUp, Loader } from "lucide-react";
+import { ArrowUp, ImagePlus, Loader, X } from "lucide-react";
 import { JSX, useEffect, useRef, useState } from "react";
-import { extractReplyText, generateContent } from "@/services/gemini";
+import { fileToImageInput, generateContentWithTools, wasteAnalysisTool } from "@/services/gemini";
 import { sleep } from "./lib/sleep";
+import { chatSystemPrompts } from "./lib/systemPrompts";
 
 // Types & Interfaces
 type Chat = {
@@ -29,15 +29,17 @@ const dummyData = {
   chats: []
 } as AppProps
 
-
 export default function Home(): JSX.Element {
 
   const inputRef = useRef<HTMLInputElement | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const [ inputVal, setInputVal ] = useState("")
   const [ appState, setAppState ] = useState<AppProps>(dummyData)
   const [ isUserTurn, setIsUserTurn ] = useState(true)
   const [ isWaitingAIRes, setIsWaitingAIRes ] = useState(false)
+  const [ selectedImage, setSelectedImage ] = useState<File | null>(null)
+  const [ previewUrl, setPreviewUrl ] = useState<string | null>(null)
 
 
   // populate the chat for the first time
@@ -65,7 +67,7 @@ export default function Home(): JSX.Element {
     })
   }, [setAppState])
 
-  const addUserChat = (text: string) => {
+  const addUserChat = (text: string, image?: string) => {
     setAppState((prev) => {
       return {
         ...prev,
@@ -74,6 +76,7 @@ export default function Home(): JSX.Element {
           {
             type: "user",
             text: text,
+            image: image,
             time: new Date().toLocaleTimeString("en-US", {
               hour: "2-digit",
               minute: "2-digit",
@@ -85,7 +88,7 @@ export default function Home(): JSX.Element {
     })
   }
 
-  const addAssistantChat = (text: string) => {
+  const addAssistantChat = (text: string, isAnalysis: boolean) => {
     setAppState((prev) => {
       return {
         ...prev,
@@ -99,29 +102,76 @@ export default function Home(): JSX.Element {
               minute: "2-digit",
               hour12: false,
             }),
+            isTrashRes: isAnalysis
           }
         ]
       }
     })
   }
 
+  const onFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setSelectedImage(file)
+    setPreviewUrl(URL.createObjectURL(file))
+  }
+
+  const clearSelectedImage = () => {
+    setSelectedImage(null)
+    setPreviewUrl(null)
+    if (fileInputRef.current) fileInputRef.current.value = ""
+  }
+
+  const DELETETHISONLYTEMPORARY = (any: any) => {       // temporary console print out 
+    console.log(any)                                    // for analysis result 
+  }                                                     // that need to be stored in db
+
   const onSendHandler = async () => {
-    if (inputVal === "" || !isUserTurn) return
+    if ((inputVal === "" && !selectedImage) || !isUserTurn) return
+
+    const textToSend = inputVal
+    const imageToSend = selectedImage
+
     setInputVal("")
-
+    clearSelectedImage()
     setIsUserTurn(false)
-    addUserChat(inputVal)
-    
+    addUserChat(textToSend, imageToSend ? previewUrl ?? undefined : undefined)
     sleep(0.3)                  // for life like feeling
-
     setIsWaitingAIRes(true)
 
-    const res = await generateContent(inputVal, "gemini-3.1-flash-lite")
-    if (res.success) {
-      const reply = extractReplyText(res)
+    let res
 
+    if (imageToSend) {
+      const imageInput = await fileToImageInput(imageToSend)
+      res = await generateContentWithTools(
+        textToSend || "Analyse this waste image",
+        [wasteAnalysisTool],
+        "gemini-3.1-flash-lite",
+        chatSystemPrompts,
+        imageInput
+      )
+    } else {
+      res = await generateContentWithTools(textToSend, [wasteAnalysisTool], "gemini-3.1-flash-lite")
+    }
+
+    if (res.success) {
       setIsWaitingAIRes(false)
-      if (reply) addAssistantChat(reply)
+
+      // if the AI didnt analyze image
+      if (res.functionCalls.length == 0 && res.text) {
+        addAssistantChat(res.text, false)
+      }
+
+      // if the AI analyze image
+      if (res.functionCalls.length != 0 && res.text) {
+        addAssistantChat(res.text, true)
+        DELETETHISONLYTEMPORARY({
+          "Type": res.functionCalls[0].args.wasteType,
+          "Emmision Reduction": res.functionCalls[0].args.emissionReduction,
+          "Price": res.functionCalls[0].args.price
+        })
+      }
     } else {
       console.error(res.error)    // add error to UI
     }
@@ -142,13 +192,6 @@ export default function Home(): JSX.Element {
           isFeedbackNeeded={chat.isTrashRes}
         />
       ))}
-
-      {/* <BubbleChat type="assistant" text="Ini contoh chat awalan otomatis di generasi oleh system." time="10:20" />
-      <BubbleChat type="user" text="Contoh chat menggunakan gambar landscape." time="10:21" image="https://kadujayaperkasa.com/images/blog/b058a-botol%20plastik2.jpg" />
-      <BubbleChat type="user" text="Contoh chat menggunakan gambar potrait." time="10:21" image="https://pict.sindonews.com/size/640/salsabila/photo/2021/06/11/1/14898/G-sampah-botol-plastik-jadi-penggerak-ekonomi-nax.jpg" />
-      <BubbleChat type="user" text="Contoh chat menggunakan gambar potrait." time="10:21" image="https://pict.sindonews.com/size/640/salsabila/photo/2021/06/11/1/14898/G-sampah-botol-plastik-jadi-penggerak-ekonomi-nax.jpg" />
-      <BubbleChat type="assistant" text="Contoh AI ketika response gambar tentang sampah" time="10:22" isFeedbackNeeded={true} />
-      <BubbleChat type="assistant_feedback"  /> */}
     </>
   )
 
@@ -174,22 +217,54 @@ export default function Home(): JSX.Element {
         }
       </div>
 
-      <div className="px-3 fixed w-screen h-14 bottom-23">
-          <div className="flex gap-2 justify-center items-center w-full h-full">
-              <input
-                className="bg-secondary/90 border-2 border-tertiary backdrop-blur-xl  h-full w-full rounded-full p-5 font-semibold"
-                placeholder="Tanya Jarvis"
-                type="text"
-                value={inputVal}
-                onChange={(event) => setInputVal(event.target.value)}
-                ref={inputRef}
+      <div className="px-3 fixed w-screen bottom-23">
+        <div className="flex flex-col gap-2 items-center max-w-full mx-auto lg:max-w-300">
+          {previewUrl &&
+            <div className="relative self-start">
+              <img
+                className="max-h-24 rounded-lg border-2 border-tertiary"
+                src={previewUrl}
+                alt="preview"
               />
-              <div onClick={onSendHandler} className="bg-secondary/90 backdrop-blur-xl border-2 border-tertiary w-14 h-14 flex items-center justify-center rounded-full shrink-0">
-                  <ArrowUp size={30} />
+              <div
+                onClick={clearSelectedImage}
+                className="absolute -top-2 -right-2 bg-red-500 rounded-full p-0.5 cursor-pointer"
+              >
+                <X size={16} className="text-white" />
               </div>
+            </div>
+          }
+
+          <div className="flex gap-2 justify-center items-center w-full h-14">
+            <input
+              ref={fileInputRef}
+              className="hidden"
+              type="file"
+              accept="image/*"
+              onChange={onFileSelected}
+            />
+
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="bg-secondary/90 backdrop-blur-xl border-2 border-tertiary w-14 h-full flex items-center justify-center rounded-full shrink-0 cursor-pointer"
+            >
+              <ImagePlus size={28} />
+            </div>
+
+            <input
+              className="bg-secondary/90 border-2 border-tertiary backdrop-blur-xl h-full w-full rounded-full p-5 font-semibold"
+              placeholder="Tanya Jarvis"
+              type="text"
+              value={inputVal}
+              onChange={(event) => setInputVal(event.target.value)}
+              ref={inputRef}
+            />
+            <div onClick={onSendHandler} className="bg-secondary/90 backdrop-blur-xl border-2 border-tertiary w-14 h-14 flex items-center justify-center rounded-full shrink-0 cursor-pointer">
+              <ArrowUp size={30} />
+            </div>
           </div>
+        </div>
       </div>
     </div>
   );
 }
-

@@ -1,21 +1,21 @@
 "use client";
 
 import { ArrowUp, ThumbsDown, ThumbsUp, ThumbsUpIcon, XIcon } from "lucide-react";
-import React, { useState } from "react"
+import React, { useEffect, useState } from "react"
 
 interface BubbleChatProps {
     index?: number
-    type: "user" | "assistant" | "assistant_feedback" // feedback for kalo dislike itu yang klasifikasi manual
+    type: "user" | "assistant"
     text?: string
     time?: string // expect a parsed time (yes right?)
     image?: string  // user image kalo upload
     isFeedbackNeeded?: boolean  // if dislike button needed
-    isDisliked?: () =>  void
-    feedback?: (input: string) => void // optional, only for assistant_feedback when using hit send
+    feedback?: (input: string) => void // optional, for sending feedback
 }
 
 export const BubbleChat: React.FC<BubbleChatProps> = ({ type, text, time, image, feedback, isFeedbackNeeded }) => {
     const [ liked, setLiked ] = useState(false)
+    const [ disliked, setDisliked ] = useState(false)
 
     const AIname = "Jarvis"
     const secondStyle = type == "user" ? "bg-secondary rounded-l-xl" : "bg-primary rounded-r-xl"
@@ -41,7 +41,7 @@ export const BubbleChat: React.FC<BubbleChatProps> = ({ type, text, time, image,
         <div className="flex flex-col w-full">
             <div className="flex justify-between pb-1">
                 <p className="font-bold text-base">Klasifikasi Manual</p>
-                <XIcon />
+                <XIcon onClick={() => setDisliked(false)} />
             </div>
 
             <p className="text-[#FFEBF4]">Jelaskan apa tipe sampah yang anda kirim agar {AIname} dapat menjawab ulang dengan akurat.</p>
@@ -59,15 +59,15 @@ export const BubbleChat: React.FC<BubbleChatProps> = ({ type, text, time, image,
     return (
         <div className={`max-w-[80%] flex flex-col gap-2 ${mainStyle}`}>
         <div className={`w-full p-3 rounded-b-xl ${secondStyle}`}>
-            {type == "assistant_feedback" ?
+            {disliked ?
                 FeedbackLayout :
                 NonFeedbackLayout
             }
         </div>
         
-        {isFeedbackNeeded &&
+        {isFeedbackNeeded && !disliked &&
             <div className="flex gap-4 text-primary text-2xl self-end">
-                <ThumbsDown />
+                <ThumbsDown onClick={() => setDisliked(true)} />
                 <ThumbsUp onClick={() => setLiked(!liked)} className={`${liked ? "" : "fill-transparent"}`} fill="currentColor" />
             </div>
         }
