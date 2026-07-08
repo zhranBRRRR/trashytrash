@@ -3,14 +3,14 @@
 import { BubbleChat } from "./bubbleChat";
 import { ArrowUp, ImagePlus, Loader, X } from "lucide-react";
 import { JSX, useEffect, useRef, useState } from "react";
-import { extractWasteAnalysisArgs, fileToImageInput, generateContentWithTools, sendFunctionResponse, WasteAnalysisArgs, wasteAnalysisTool, type FunctionCall } from "@/app/_services/gemini";
+import { extractWasteAnalysisArgs, fileToImageInput, generateContentWithTools, sendFunctionResponse, WasteAnalysisArgs, wasteAnalysisTool, type FunctionCall, type ImageInput } from "@/app/_services/gemini";
 import { sleep } from "./_lib/sleep";
 import { chatSystemPrompts } from "./_lib/systemPrompts";
 import { Chat, Chats } from "./_types/chats";
-import { addChatDB, getAllChatsDB } from "./_db/chats.db";
+import { addChatDB, getAllChatsDB, getChatByIndexDB, putChatDB } from "./_db/chats.db";
 import { getStats, saveStats } from "./_db/stats.localstorage";
 import { fileToBase64 } from "./_lib/fileToBase64";
-import { addHistoryDB } from "./_db/histories.db";
+import { addHistoryDB, deleteHistoryByAssistantChatIdDB } from "./_db/histories.db";
 import { AnimatePresence, arc, motion } from "framer-motion";
 import { defaultSpring } from "./_lib/spring";
 
@@ -44,9 +44,19 @@ export default function Home(): JSX.Element {
   const [ isWaitingAIRes, setIsWaitingAIRes ] = useState(false)
   const [ selectedImage, setSelectedImage ] = useState<File | null>(null)
   const [ previewUrl, setPreviewUrl ] = useState<string | null>(null)
-  const [ lastImage, setLastImage ] = useState<string | null>(null)
+  const [ lastImage, setLastImage ] = useState<string | null>(null)     // this is unused maybe
 
   const [aboutToFeedback, setAboutToFeedback] = useState(false)
+
+  const dataUrlToImageInput = (dataUrl: string): ImageInput | null => {
+    const match = dataUrl.match(/^data:(.+);base64,(.+)$/)
+    if (!match) return null
+
+    return {
+      mimeType: match[1],
+      data: match[2]
+    }
+  }
 
   useEffect(() => {
     const container = chatContainerRef.current
@@ -70,6 +80,8 @@ export default function Home(): JSX.Element {
           hour12: false,
         }),
       }).then(() => {
+        // no append last chat index here cuz useless
+
         getAllChatsDB().then((chats) => {
           setAppState((prev) => {
             return {
@@ -83,6 +95,8 @@ export default function Home(): JSX.Element {
   }, [setAppState])
 
   const addUserChat = (text: string, image?: string, feedback?: boolean) => {
+    console.log("adding user chat with answer to: ", parseInt(localStorage.getItem("lastChatIndex") ?? "0"))
+
     addChatDB({
       type: "user",
       text: text,
@@ -93,19 +107,26 @@ export default function Home(): JSX.Element {
         minute: "2-digit",
         hour12: false,
       }),
-    }).then(() => getAllChatsDB().then((chats) => {
-      setAppState((prev) => {
-          return {
-            ...prev,
-            chats: chats
-          }
+      answerTo: parseInt(localStorage.getItem("lastChatIndex") ?? "0")
+    }).then((chatIndex) => {
+      console.log("appending last chat index to: ", chatIndex)
+      localStorage.setItem("lastChatIndex", chatIndex.toString())
+
+      getAllChatsDB().then((chats) => {
+        setAppState((prev) => {
+            return {
+              ...prev,
+              chats: chats
+            }
+          })
         })
-      })
+      }
     )
   }
 
-  const addAssistantChat = (text: string, isAnalysis: boolean) => {
-    addChatDB({
+  const addAssistantChat = async (text: string, isAnalysis: boolean, emissionReduction?: number, price?: number): Promise<number> => {
+    console.log("adding assistant chat with answer to: ", parseInt(localStorage.getItem("lastChatIndex") ?? "0"))
+    const chatIndex = await addChatDB({
       type: "assistant",
       text: text,
       time: new Date().toLocaleTimeString("en-US", {
@@ -113,8 +134,18 @@ export default function Home(): JSX.Element {
         minute: "2-digit",
         hour12: false,
       }),
-      isTrashRes: isAnalysis
-    }).then(() => getAllChatsDB().then((chats) => {
+      isTrashRes: isAnalysis,
+      answerTo: parseInt(localStorage.getItem("lastChatIndex") ?? "0"),
+      analysis: {
+        emissionReduction: emissionReduction,
+        price: price
+      }
+    })
+
+    console.log("appending last chat index to: ", chatIndex)
+    localStorage.setItem("lastChatIndex", chatIndex.toString())
+
+    getAllChatsDB().then((chats) => {
       setAppState((prev) => {
           return {
             ...prev,
@@ -122,14 +153,17 @@ export default function Home(): JSX.Element {
           }
         })
       })
-    )
+
+    return chatIndex
   }
 
   const analysisHandler = async (
     res: WasteAnalysisArgs | null,
     functionCalls: FunctionCall[] = [],
     imageUrl?: string | null,
-    history: Chats = []
+    history: Chats = [],
+    sourceAssistantChatId?: number,
+    replaceAssistantHistoryId?: number
   ) => {
     if (res) {      
       // save stats
@@ -139,13 +173,18 @@ export default function Home(): JSX.Element {
         totalPrice: currentStats.totalPrice + res.price
       })
 
+      if (replaceAssistantHistoryId !== undefined) {
+        await deleteHistoryByAssistantChatIdDB(replaceAssistantHistoryId)
+      }
+
       // save history
-      addHistoryDB({
+      await addHistoryDB({
         type: res.wasteType,
         emissionReduction: res.emissionReduction.toString(),
         sellingPrice: res.price.toString(),
         imageUrl: imageUrl ?? "",
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        sourceAssistantChatId: sourceAssistantChatId
       })
 
       // reload UI
@@ -191,7 +230,7 @@ export default function Home(): JSX.Element {
     if (fileInputRef.current) fileInputRef.current.value = ""
   }
 
-  const onSendHandler = async (optionalText?: string, feedback?: boolean) => {
+  const onSendHandler = async (optionalText?: string, feedback?: boolean, feedbackReferenceAssistantId?: number) => {
     if ((inputVal === "" && !selectedImage && !feedback) || !isUserTurn) return
 
     const textToSend = optionalText || inputVal
@@ -203,12 +242,22 @@ export default function Home(): JSX.Element {
     setIsUserTurn(false)
     
     let base64Image: string | null = null
+    let feedbackImage: string | null = null
     let userChat: Chat
+
+    if (feedback && feedbackReferenceAssistantId !== undefined) {
+      const currentBubbleChat = await getChatByIndexDB(feedbackReferenceAssistantId)
+      const userChatWithImage = currentBubbleChat?.answerTo !== undefined
+        ? await getChatByIndexDB(currentBubbleChat.answerTo)
+        : null
+      feedbackImage = userChatWithImage?.image ?? null
+    }
 
     if (feedback) {
           userChat = {
             type: "user",
             text: textToSend,
+            image: feedbackImage ?? undefined,
             feedback: true,
             time: new Date().toLocaleTimeString("en-US", {
               hour: "2-digit",
@@ -217,7 +266,7 @@ export default function Home(): JSX.Element {
             }),
           }
 
-      addUserChat(textToSend, undefined, true)
+      addUserChat(textToSend, feedbackImage ?? undefined, true)
     } else {
       if (imageToSend) {
         base64Image = await fileToBase64(imageToSend)
@@ -253,6 +302,7 @@ export default function Home(): JSX.Element {
     setIsWaitingAIRes(true)
 
     let res
+    const imageInputFromFeedback = feedbackImage ? dataUrlToImageInput(feedbackImage) : null
 
     if (imageToSend) {
       const imageInput = await fileToImageInput(imageToSend)
@@ -263,6 +313,15 @@ export default function Home(): JSX.Element {
         "gemini-3.1-flash-lite",
         chatSystemPrompts,
         imageInput
+      )
+    } else if (imageInputFromFeedback) {
+      res = await generateContentWithTools(
+        textToSend,
+        [wasteAnalysisTool],
+        historyForAI,
+        "gemini-3.1-flash-lite",
+        chatSystemPrompts,
+        imageInputFromFeedback
       )
     } else {
       res = await generateContentWithTools(
@@ -280,11 +339,12 @@ export default function Home(): JSX.Element {
 
       // if the AI didnt analyze image
       if (res.functionCalls.length == 0 && res.text) {
-        addAssistantChat(res.text, false)
+        await addAssistantChat(res.text, false)
       }
 
       // if the AI analyze image
       if (res.functionCalls.length != 0 && res.text) {
+        const analysisArgs = extractWasteAnalysisArgs(res)
         const assistantChat: Chat = {
           type: "assistant",
           text: res.text,
@@ -294,13 +354,25 @@ export default function Home(): JSX.Element {
             hour12: false,
           }),
           isTrashRes: true,
+          answerTo: parseInt(localStorage.getItem("lastChatIndex") ?? "0")
         }
 
         const historyWithAssistant: Chats = [...historyForAI, assistantChat]
+        const assistantChatId = await addAssistantChat(
+          res.text,
+          true,
+          analysisArgs?.emissionReduction,
+          analysisArgs?.price
+        )
 
-        addAssistantChat(res.text, true)
-
-        analysisHandler(extractWasteAnalysisArgs(res), res.functionCalls, base64Image, historyWithAssistant)
+        await analysisHandler(
+          analysisArgs,
+          res.functionCalls,
+          base64Image ?? feedbackImage,
+          historyWithAssistant,
+          assistantChatId,
+          feedback ? feedbackReferenceAssistantId : undefined
+        )
       }
     } else {
       console.error(res.error)    // add error to UI
@@ -308,11 +380,41 @@ export default function Home(): JSX.Element {
     setIsUserTurn(true)
   }
 
-  const handleFeedback = (feedback: string) => {
+  const handleFeedback = async (feedback: string, referenceIndex: number) => {
     setAboutToFeedback(false)
     
+    console.log("feedback for chat: ", referenceIndex, feedback)
 
-    onSendHandler(feedback, true)
+    const currentBubbleChat = await getChatByIndexDB(referenceIndex)
+    const emissionReduction = currentBubbleChat?.analysis?.emissionReduction
+    const price = currentBubbleChat?.analysis?.price
+    const stats = getStats()
+
+    saveStats({
+      totalEmissionReduction: stats.totalEmissionReduction - (emissionReduction ?? 0),
+      totalPrice: stats.totalPrice - (price ?? 0)
+    })
+
+    putChatDB({
+      analysis: undefined,
+      answerTo: currentBubbleChat?.answerTo,
+      feedback: currentBubbleChat?.feedback,
+      isTrashRes: currentBubbleChat?.isTrashRes,
+      text: currentBubbleChat?.text ?? "",
+      time: currentBubbleChat?.time ?? "00.00",
+      type: currentBubbleChat?.type ?? "assistant"
+    }, referenceIndex).then(() => getAllChatsDB().then((chats) => {
+      setAppState(() => {
+        return {
+          totalEmissionReduction: getStats().totalEmissionReduction,
+          totalPrice: getStats().totalPrice,
+          chats : chats
+        }
+      })
+    }))
+    // investigasi apakah ini sudah masuk apa belum
+
+    onSendHandler(feedback, true, referenceIndex)
   }
 
   const ChatsContainer = (
@@ -320,8 +422,9 @@ export default function Home(): JSX.Element {
       {appState.chats.map((chat, index) => {
         return !chat.feedback && (
           <BubbleChat
-            key={index}
-            index={index}
+            key={chat.id ?? index}
+            chatId={chat.id}
+            index={chat.answerTo ?? 0}
             type={chat.type === "user" ? "user" : "assistant"}
             text={chat.text}
             time={chat.time}

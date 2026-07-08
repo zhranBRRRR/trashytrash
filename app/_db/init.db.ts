@@ -1,4 +1,4 @@
-const DB_VERSION = 2
+const DB_VERSION = 3
 
 export async function initDB(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
@@ -12,8 +12,15 @@ export async function initDB(): Promise<IDBDatabase> {
                 db.createObjectStore("chats", { keyPath: "id", autoIncrement: true })
             }
 
-            if (!db.objectStoreNames.contains("history")) {
-                db.createObjectStore("histories", { keyPath: "id", autoIncrement: true })
+            let historiesStore: IDBObjectStore
+            if (!db.objectStoreNames.contains("histories")) {
+                historiesStore = db.createObjectStore("histories", { keyPath: "id", autoIncrement: true })
+            } else {
+                historiesStore = req.transaction!.objectStore("histories")
+            }
+
+            if (!historiesStore.indexNames.contains("sourceAssistantChatId")) {
+                historiesStore.createIndex("sourceAssistantChatId", "sourceAssistantChatId", { unique: false })
             }
         }
     

@@ -6,28 +6,40 @@ import React, { useEffect, useState } from "react"
 import { defaultSpring } from "./_lib/spring";
 import { AnimateChangeInHeight } from "./AnimateHeight";
 import Markdown from "react-markdown";
+import { Chat } from "./_types/chats";
+import { getChatByIndexDB } from "./_db/chats.db";
 
 interface BubbleChatProps {
-    index?: number
+    chatId?: number
+    index?: number          // this index, i believe is the answerTo number in the chats, that mean this index refer to the index of the chat before
     type: "user" | "assistant"
     text?: string
     time?: string // expect a parsed time (yes right?)
     image?: string  // user image kalo upload
     isFeedbackNeeded?: boolean  // if dislike button needed
-    feedback?: (input: string) => void // optional, used to send feedback. [not implemented] (example: clicking send after writing the actual waste type, this will execute the parent function for sending back the image, undo any changes made, and replace this bubble chat with a new one)
+    feedback?: (input: string, referenceIndex: number) => Promise<void> // optional, used to send feedback. [not implemented] (example: clicking send after writing the actual waste type, this will execute the parent function for sending back the image, undo any changes made, and replace this bubble chat with a new one)
     setAboutToFeedback?: (input: boolean) => void // to hide the input
 }
 
 
-export const BubbleChat: React.FC<BubbleChatProps> = ({ type, text, time, image, feedback, isFeedbackNeeded, setAboutToFeedback }) => {
+export const BubbleChat: React.FC<BubbleChatProps> = ({ chatId, index, type, text, time, image, feedback, isFeedbackNeeded, setAboutToFeedback }) => {
     const [liked, setLiked] = useState(false)
     const [disliked, setDisliked] = useState(false)
 
     const [localFeedback, setLocalFeedback] = useState<string | null>(null)
+    const [ chatBefore, setChatBefore ] = useState<Chat | null>(null)
+
+    useEffect(() => {
+        getChatByIndexDB(index ?? 0).then((chat) => {
+            setChatBefore(chat)
+        })
+    }, [index])
 
     const AIname = "Jarvis"
     const secondStyle = type == "user" ? "bg-secondary rounded-l-xl" : "bg-primary rounded-r-xl"
     const mainStyle = type == "user" ? "self-end" : "self-start"
+
+
 
     const NonFeedbackLayout = (
         <div className="flex flex-col w-full">
@@ -72,7 +84,10 @@ export const BubbleChat: React.FC<BubbleChatProps> = ({ type, text, time, image,
                 className="bg-secondary h-9 w-full rounded-full p-2" type="text" />
                 <button 
                 onClick={() => {
-                    feedback && feedback("SYSTEM FEEDBACK [The user has provided a correction to your analysis before, you have made a mistake by wrongly classificate the image. Determine and adjust accordingly based on the user. Always output human readable text first.]: " + (localFeedback || ""));
+                    feedback && feedback(
+                        `SYSTEM FEEDBACK [The user has provided a correction to your analysis before, you have made a mistake by wrongly classificate the image. Re analyze the waste according to the image or the user text if image not available. ALWAYS output human readable text for the human and call the function unconditionally!.] ${chatBefore?.image ? `[image: ${chatBefore.image}]` : ""}: ` + (localFeedback || ""),
+                        chatId ?? ((index ?? 0) + 1)
+                    );
                     setDisliked(false);
                     setAboutToFeedback && setAboutToFeedback(false);
                 }}
@@ -82,7 +97,6 @@ export const BubbleChat: React.FC<BubbleChatProps> = ({ type, text, time, image,
             </div>
         </motion.div>
     )
-
 
     return (
         <motion.div 
