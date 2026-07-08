@@ -72,7 +72,7 @@ export const BubbleChat: React.FC<BubbleChatProps> = ({ type, text, time, image,
                 className="bg-secondary h-9 w-full rounded-full p-2" type="text" />
                 <button 
                 onClick={() => {
-                    feedback && feedback("SYSTEM FEEDBACK [The user has provided a correction. Determine and adjust accordingly]: " + (localFeedback || ""));
+                    feedback && feedback("SYSTEM FEEDBACK [The user has provided a correction to your analysis before, you have made a mistake by wrongly classificate the image. Determine and adjust accordingly based on the user. Always output human readable text first.]: " + (localFeedback || ""));
                     setDisliked(false);
                     setAboutToFeedback && setAboutToFeedback(false);
                 }}
