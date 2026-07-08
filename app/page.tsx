@@ -338,7 +338,7 @@ export default function Home(): JSX.Element {
   return (
     // width and height can be changed later
     <div className="w-screen h-screen flex justify-center">
-      <div className="flex items-center fixed px-5 top-0 inset-0 h-15 w-full bg-background justify-between">
+      <div className="flex items-center fixed px-5 top-0 inset-0 h-15 w-full max-w-lg mx-auto bg-background justify-between">
         <p className="text-xl font-semibold text-primary">App Name</p>
         <div className="flex gap-2">
           <div className="bg-primary px-3 py-1 rounded-full w-fit">{appState.totalEmissionReduction.toFixed(3)} CO₂-eq</div>
@@ -346,7 +346,7 @@ export default function Home(): JSX.Element {
         </div>
       </div>
 
-      <div ref={chatContainerRef} className="w-full flex flex-col gap-y-3 lg:w-300 h-full pt-17 pb-40 mx-5 sm:mx-10 md:mx-15 lg:mx-auto overflow-y-scroll">
+      <div ref={chatContainerRef} className="w-full max-w-lg flex flex-col gap-y-3 lg:w-300 h-full pt-17 pb-40 mx-5 sm:mx-10 md:mx-15 lg:mx-auto overflow-y-scroll px-2">
         {ChatsContainer}
 
         {isWaitingAIRes &&        
@@ -357,7 +357,7 @@ export default function Home(): JSX.Element {
         }
       </div>
 
-      <div className="px-3 fixed w-screen bottom-23">
+      <div className="px-3 fixed w-full max-w-lg lg:bottom-1 bottom-20 mb-4">
         <div className="flex flex-col gap-2 items-center max-w-full mx-auto lg:max-w-300">
           <AnimatePresence>
             {previewUrl &&
