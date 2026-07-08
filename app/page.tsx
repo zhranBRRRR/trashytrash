@@ -3,7 +3,7 @@
 import { BubbleChat } from "./bubbleChat";
 import { ArrowUp, ImagePlus, Loader, X } from "lucide-react";
 import { JSX, useEffect, useRef, useState } from "react";
-import { extractWasteAnalysisArgs, fileToImageInput, generateContentWithTools, WasteAnalysisArgs, wasteAnalysisTool } from "@/app/_services/gemini";
+import { extractWasteAnalysisArgs, fileToImageInput, generateContentWithTools, sendFunctionResponse, WasteAnalysisArgs, wasteAnalysisTool } from "@/app/_services/gemini";
 import { sleep } from "./_lib/sleep";
 import { chatSystemPrompts } from "./_lib/systemPrompts";
 import { Chats } from "./_types/chats";
@@ -109,7 +109,7 @@ export default function Home(): JSX.Element {
     )
   }
 
-  const analysisHandler = (res: WasteAnalysisArgs | null, imageUrl?: string | null) => {
+  const analysisHandler = async (res: WasteAnalysisArgs | null, imageUrl?: string | null) => {
     if (res) {
       console.log(imageUrl)
 
@@ -141,6 +141,18 @@ export default function Home(): JSX.Element {
             ]
           }
         })
+
+        await sendFunctionResponse(
+          [wasteAnalysisTool],
+          appState.chats,
+          [{
+            name: "recordWasteAnalysis",
+            args: res as unknown as Record<string, unknown>,
+          }],
+          "OK!",
+          "gemini-3.1-flash-lite",
+          chatSystemPrompts
+        )
     }
   }
 
@@ -188,12 +200,18 @@ export default function Home(): JSX.Element {
       res = await generateContentWithTools(
         textToSend || "Analyse this waste image",
         [wasteAnalysisTool],
+        appState.chats,
         "gemini-3.1-flash-lite",
         chatSystemPrompts,
         imageInput
       )
     } else {
-      res = await generateContentWithTools(textToSend, [wasteAnalysisTool], "gemini-3.1-flash-lite")
+      res = await generateContentWithTools(
+        textToSend,
+        [wasteAnalysisTool],
+        appState.chats,
+        "gemini-3.1-flash-lite"
+      )
     }
 
     if (res.success) {

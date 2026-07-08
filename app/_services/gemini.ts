@@ -1,4 +1,5 @@
 import axios from "axios";
+import type { Chats } from "../_types/chats";
 
 const API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
@@ -85,6 +86,18 @@ export interface ImageInput {
   data: string;
 }
 
+function toImageInput(image?: string): ImageInput | null {
+  if (!image) return null;
+
+  const match = image.match(/^data:(.+);base64,(.+)$/);
+  if (!match) return null;
+
+  return {
+    mimeType: match[1],
+    data: match[2],
+  };
+}
+
 // ─── wasteAnalysisTool argument type ────────────────────────────
 
 /**
@@ -124,6 +137,48 @@ type GenerateContentWithToolsResult =
       data: GeminiResponse;
     }
   | { success: false; error: string };
+
+function buildConversationContents(
+  history: Chats,
+  prompt?: string,
+  image?: ImageInput
+): Content[] {
+  const contents: Content[] = history.flatMap((chat) => {
+    const content: Content = {
+      role: chat.type === "assistant" ? "model" : "user",
+      parts: [{ text: chat.text }],
+    };
+
+    const chatImage = toImageInput(chat.image);
+    if (chatImage) {
+      content.parts.push({
+        inlineData: {
+          mimeType: chatImage.mimeType,
+          data: chatImage.data,
+        },
+      });
+    }
+
+    return [content];
+  });
+
+  if (prompt !== undefined) {
+    const parts: ContentPart[] = [{ text: prompt }];
+
+    if (image) {
+      parts.push({
+        inlineData: {
+          mimeType: image.mimeType,
+          data: image.data,
+        },
+      });
+    }
+
+    contents.push({ role: "user", parts });
+  }
+
+  return contents;
+}
 
 // ─── Public API ─────────────────────────────────────────────────
 
@@ -213,6 +268,7 @@ export async function generateContent(
 export async function generateContentWithTools(
   prompt: string,
   tools: Tool[],
+  history: Chats = [],
   model: string = "gemini-2.0-flash",
   systemPrompt?: string,
   image?: ImageInput
@@ -228,24 +284,8 @@ export async function generateContentWithTools(
   }
 
   try {
-    const parts: ContentPart[] = [{ text: prompt }];
-
-    if (image) {
-      parts.push({
-        inlineData: {
-          mimeType: image.mimeType,
-          data: image.data,
-        },
-      });
-    }
-
     const body: Record<string, unknown> = {
-      contents: [
-        {
-          role: "user",
-          parts,
-        },
-      ],
+      contents: buildConversationContents(history, prompt, image),
       tools,
     };
 
@@ -275,6 +315,81 @@ export async function generateContentWithTools(
     const finishReason = data.candidates?.[0]?.finishReason ?? "OTHER";
 
     return { success: true, text, functionCalls, finishReason, data };
+  } catch (err) {
+    if (axios.isAxiosError<GeminiErrorResponse>(err)) {
+      const errorMsg = err.response?.data?.error?.message ?? err.message;
+      return { success: false, error: errorMsg };
+    }
+
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Unknown error occurred",
+    };
+  }
+}
+
+/**
+ * Sends a function response back to Gemini after a model function call.
+ * The response is intentionally simple and can be used as an acknowledgement.
+ */
+export async function sendFunctionResponse(
+  tools: Tool[],
+  history: Chats = [],
+  functionCalls: FunctionCall[] = [],
+  responseText = "OK!",
+  model: string = "gemini-2.0-flash",
+  systemPrompt?: string,
+): Promise<GenerateContentResult> {
+  const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+
+  if (!apiKey) {
+    return {
+      success: false,
+      error:
+        "Missing Gemini API key. Set NEXT_PUBLIC_GEMINI_API_KEY in your .env.local file.",
+    };
+  }
+
+  try {
+    const contents = buildConversationContents(history);
+
+    contents.push({
+      role: "model",
+      parts: functionCalls.map((call) => ({
+        functionCall: {
+          name: call.name,
+          args: call.args,
+        },
+      })),
+    });
+
+    contents.push({
+      role: "user",
+      parts: functionCalls.map((call) => ({
+        functionResponse: {
+          name: call.name,
+          response: { result: responseText },
+        },
+      })),
+    });
+
+    const body: Record<string, unknown> = {
+      contents,
+      tools,
+    };
+
+    if (systemPrompt) {
+      body.systemInstruction = {
+        parts: [{ text: systemPrompt }],
+      };
+    }
+
+    const { data } = await axios.post<GeminiResponse>(
+      `${API_BASE_URL}/models/${model}:generateContent?key=${apiKey}`,
+      body
+    );
+
+    return { success: true, data };
   } catch (err) {
     if (axios.isAxiosError<GeminiErrorResponse>(err)) {
       const errorMsg = err.response?.data?.error?.message ?? err.message;
