@@ -18,7 +18,7 @@ export const addChatDB = async ({ type, text, image, isTrashRes, time }: Chat): 
     })
 }
 
-export const getAllChatsDB = async ({ type, text, image, isTrashRes, time }: Chat): Promise<Chats[]> => {
+export const getAllChatsDB = async (): Promise<Chats> => {
     const db = await initDB()
 
     return new Promise((resolve, reject) => {

@@ -7,6 +7,9 @@ import { fileToImageInput, generateContentWithTools, wasteAnalysisTool } from "@
 import { sleep } from "./_lib/sleep";
 import { chatSystemPrompts } from "./_lib/systemPrompts";
 import { Chats } from "./_types/chats";
+import { addChatDB, getAllChatsDB } from "./_db/chats.db";
+import { getStats } from "./_db/stats.localstorage";
+import { fileToBase64 } from "./_lib/fileToBase64";
 
 // Types & Interfaces
 interface AppProps {
@@ -15,11 +18,15 @@ interface AppProps {
   chats: Chats
 }
 
-// dummy data (replace with actual indexedDB or localStorage yes?)
-const dummyData = {
-  totalEmissionReduction: 0.5,
-  totalPrice: 12000,
-  chats: []
+// initiator
+const chats = await getAllChatsDB()
+const stats = getStats()
+console.log(chats)
+
+const data = {
+  totalEmissionReduction: stats.totalEmissionReduction,
+  totalPrice: stats.totalPrice,
+  chats: chats
 } as AppProps
 
 export default function Home(): JSX.Element {
@@ -28,7 +35,7 @@ export default function Home(): JSX.Element {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const [ inputVal, setInputVal ] = useState("")
-  const [ appState, setAppState ] = useState<AppProps>(dummyData)
+  const [ appState, setAppState ] = useState<AppProps>(data)
   const [ isUserTurn, setIsUserTurn ] = useState(true)
   const [ isWaitingAIRes, setIsWaitingAIRes ] = useState(false)
   const [ selectedImage, setSelectedImage ] = useState<File | null>(null)
@@ -37,69 +44,68 @@ export default function Home(): JSX.Element {
 
   // populate the chat for the first time
   useEffect(() => {
-    setAppState((prev) => {
-      if (prev.chats.length > 0) {
-        return prev
-      }
-
-      return {
-        ...prev,
-        chats: [
-          ...prev.chats,
-          {
-            type: "assistant",
-            text: "Halo, saya bisa kalkulasi reduksi emisi dan nilai tukar sampah-sampah anda. Jangan lupa upload gambar sampah anda ke saya dahulu ya.",
-            time: new Date().toLocaleTimeString("en-US", {
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: false,
-            }),
-          },
-        ],
-      }
-    })
+    if (appState.chats.length == 0) {
+      addChatDB({
+        type: "assistant",
+        text: "Halo, saya bisa kalkulasi reduksi emisi dan nilai tukar sampah-sampah anda. Jangan lupa upload gambar sampah anda ke saya dahulu ya.",
+        time: new Date().toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        }),
+      }).then(() => {
+        getAllChatsDB().then((chats) => {
+          setAppState((prev) => {
+            return {
+              ...prev,
+              chats: chats
+            }
+          })
+        })
+      })
+    }
   }, [setAppState])
 
   const addUserChat = (text: string, image?: string) => {
-    setAppState((prev) => {
-      return {
-        ...prev,
-        chats: [
-          ...prev.chats,
-          {
-            type: "user",
-            text: text,
-            image: image,
-            time: new Date().toLocaleTimeString("en-US", {
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: false,
-            }),
+    addChatDB({
+      type: "user",
+      text: text,
+      image: image,
+      time: new Date().toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }),
+    }).then(() => getAllChatsDB().then((chats) => {
+      setAppState((prev) => {
+          return {
+            ...prev,
+            chats: chats
           }
-        ]
-      }
-    })
+        })
+      })
+    )
   }
 
   const addAssistantChat = (text: string, isAnalysis: boolean) => {
-    setAppState((prev) => {
-      return {
-        ...prev,
-        chats: [
-          ...prev.chats,
-          {
-            type: "assistant",
-            text: text,
-            time: new Date().toLocaleTimeString("en-US", {
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: false,
-            }),
-            isTrashRes: isAnalysis
+    addChatDB({
+      type: "assistant",
+      text: text,
+      time: new Date().toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }),
+      isTrashRes: isAnalysis
+    }).then(() => getAllChatsDB().then((chats) => {
+      setAppState((prev) => {
+          return {
+            ...prev,
+            chats: chats
           }
-        ]
-      }
-    })
+        })
+      })
+    )
   }
 
   const onFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -129,7 +135,14 @@ export default function Home(): JSX.Element {
     setInputVal("")
     clearSelectedImage()
     setIsUserTurn(false)
-    addUserChat(textToSend, imageToSend ? previewUrl ?? undefined : undefined)
+
+    if (imageToSend) {
+      const base64Image = await fileToBase64(imageToSend)
+      addUserChat(textToSend, base64Image)
+    } else {
+      addUserChat(textToSend)
+    }
+
     sleep(0.3)                  // for life like feeling
     setIsWaitingAIRes(true)
 
