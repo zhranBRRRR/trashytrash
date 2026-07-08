@@ -3,7 +3,7 @@
 import { BubbleChat } from "./bubbleChat";
 import { ArrowUp, ImagePlus, Loader, X } from "lucide-react";
 import { JSX, useEffect, useRef, useState } from "react";
-import { extractWasteAnalysisArgs, fileToImageInput, generateContentWithTools, sendFunctionResponse, WasteAnalysisArgs, wasteAnalysisTool } from "@/app/_services/gemini";
+import { extractWasteAnalysisArgs, fileToImageInput, generateContentWithTools, sendFunctionResponse, WasteAnalysisArgs, wasteAnalysisTool, type FunctionCall } from "@/app/_services/gemini";
 import { sleep } from "./_lib/sleep";
 import { chatSystemPrompts } from "./_lib/systemPrompts";
 import { Chats } from "./_types/chats";
@@ -109,7 +109,11 @@ export default function Home(): JSX.Element {
     )
   }
 
-  const analysisHandler = async (res: WasteAnalysisArgs | null, imageUrl?: string | null) => {
+  const analysisHandler = async (
+    res: WasteAnalysisArgs | null,
+    functionCalls: FunctionCall[] = [],
+    imageUrl?: string | null
+  ) => {
     if (res) {
       console.log(imageUrl)
 
@@ -145,10 +149,12 @@ export default function Home(): JSX.Element {
         await sendFunctionResponse(
           [wasteAnalysisTool],
           appState.chats,
-          [{
-            name: "recordWasteAnalysis",
-            args: res as unknown as Record<string, unknown>,
-          }],
+          functionCalls.length > 0
+            ? functionCalls
+            : [{
+                name: "recordWasteAnalysis",
+                args: res as unknown as Record<string, unknown>,
+              }],
           "OK!",
           "gemini-3.1-flash-lite",
           chatSystemPrompts
@@ -226,7 +232,7 @@ export default function Home(): JSX.Element {
       if (res.functionCalls.length != 0 && res.text) {
         addAssistantChat(res.text, true)
 
-        analysisHandler(extractWasteAnalysisArgs(res), base64Image)
+        analysisHandler(extractWasteAnalysisArgs(res), res.functionCalls, base64Image)
       }
     } else {
       console.error(res.error)    // add error to UI

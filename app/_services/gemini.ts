@@ -17,6 +17,8 @@ interface InlineDataPart {
 }
 
 interface FunctionCallPart {
+  thoughtSignature?: string;
+  thought_signature?: string;
   functionCall: {
     name: string;
     args: Record<string, unknown>;
@@ -53,6 +55,8 @@ export interface Tool {
 export interface FunctionCall {
   name: string;
   args: Record<string, unknown>;
+  thoughtSignature?: string;
+  thought_signature?: string;
 }
 
 interface GeminiResponse {
@@ -310,6 +314,8 @@ export async function generateContentWithTools(
         .map((p) => ({
           name: p.functionCall.name,
           args: p.functionCall.args,
+          thoughtSignature:
+            p.thoughtSignature ?? p.thought_signature,
         })) ?? [];
 
     const finishReason = data.candidates?.[0]?.finishReason ?? "OTHER";
@@ -355,12 +361,19 @@ export async function sendFunctionResponse(
 
     contents.push({
       role: "model",
-      parts: functionCalls.map((call) => ({
-        functionCall: {
-          name: call.name,
-          args: call.args,
-        },
-      })),
+      parts: functionCalls.map((call) => {
+        const thoughtSignature = call.thought_signature ?? call.thoughtSignature;
+
+        return {
+          functionCall: {
+            name: call.name,
+            args: call.args,
+          },
+          ...(thoughtSignature
+            ? { thought_signature: thoughtSignature }
+            : {}),
+        };
+      }),
     });
 
     contents.push({
@@ -433,6 +446,7 @@ export function extractFunctionCalls(
       .map((p) => ({
         name: p.functionCall.name,
         args: p.functionCall.args,
+        thoughtSignature: p.thoughtSignature ?? p.thought_signature,
       })) ?? []
   );
 }
