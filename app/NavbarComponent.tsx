@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 export default function Navbar() {
     const router = useRouter();
-    return <div className="fixed bottom-0 h-20 bg-tertiary w-screen flex justify-around">
+    return <div className="fixed lg:top-0 bottom-0 h-20 bg-tertiary lg:h-screen lg:w-18 w-screen flex lg:flex-col justify-around">
         <button
             className="flex flex-col gap-y-1 items-center justify-center"
             onClick={() => router.push("/")}

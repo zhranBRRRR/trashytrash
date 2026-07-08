@@ -81,7 +81,7 @@ export default function History() {
 
     return (
         <div className="p-6 text-[#667032]">
-            <div className="flex flex-col gap-8">
+            <div className="flex flex-col gap-8 max-w-lg mx-auto">
                 {groupedHistory.map((group) => (
                     <section key={group.label} className="flex flex-col gap-4">
                         <div className="flex items-center gap-4">
