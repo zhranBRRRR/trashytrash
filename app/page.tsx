@@ -3,23 +3,16 @@
 import { BubbleChat } from "./bubbleChat";
 import { ArrowUp, ImagePlus, Loader, X } from "lucide-react";
 import { JSX, useEffect, useRef, useState } from "react";
-import { fileToImageInput, generateContentWithTools, wasteAnalysisTool } from "@/services/gemini";
-import { sleep } from "./lib/sleep";
-import { chatSystemPrompts } from "./lib/systemPrompts";
+import { fileToImageInput, generateContentWithTools, wasteAnalysisTool } from "@/app/_services/gemini";
+import { sleep } from "./_lib/sleep";
+import { chatSystemPrompts } from "./_lib/systemPrompts";
+import { Chats } from "./_types/chats";
 
 // Types & Interfaces
-type Chat = {
-  type: "assistant" | "user"
-  text: string
-  image?: string
-  isTrashRes?: boolean         // gatau mau namain apa
-  time: string
-}
-
 interface AppProps {
   totalEmissionReduction: number
   totalPrice: number
-  chats: Chat[]
+  chats: Chats
 }
 
 // dummy data (replace with actual indexedDB or localStorage yes?)
