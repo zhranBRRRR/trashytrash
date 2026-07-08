@@ -6,7 +6,7 @@ type Stats = {
 export const getStats = (): Stats => {
     let totalEmissionReduction: string | number | null = localStorage.getItem("totalEmissionReduction")
 
-    if (totalEmissionReduction) totalEmissionReduction = parseInt(totalEmissionReduction as string, 10)
+    if (totalEmissionReduction) totalEmissionReduction = parseFloat(totalEmissionReduction as string).toFixed(2)
     if (!totalEmissionReduction) localStorage.setItem("totalEmissionReduction", "0")
 
     let totalPrice: string | number | null = localStorage.getItem("totalPrice")

@@ -1,5 +1,6 @@
 "use client";
 
+import { getAllHistoriesDB } from "../_db/histories.db";
 import HistoryCard from "./HistoryCard";
 
 type HistoryEntry = {
@@ -9,6 +10,9 @@ type HistoryEntry = {
     imageUrl: string;
     timestamp: string;
 };
+
+const data = await getAllHistoriesDB()
+console.log(data)
 
 const historyData: HistoryEntry[] = [
     {
@@ -59,7 +63,7 @@ function getDateMarker(timestamp: string) {
 }
 
 export default function History() {
-    const groupedHistory = historyData.reduce<Array<{ label: string; items: HistoryEntry[] }>>(
+    const groupedHistory = data.reduce<Array<{ label: string; items: HistoryEntry[] }>>(
         (groups, entry) => {
             const label = getDateMarker(entry.timestamp);
             const lastGroup = groups[groups.length - 1];

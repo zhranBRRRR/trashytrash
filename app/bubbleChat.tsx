@@ -10,7 +10,7 @@ interface BubbleChatProps {
     time?: string // expect a parsed time (yes right?)
     image?: string  // user image kalo upload
     isFeedbackNeeded?: boolean  // if dislike button needed
-    feedback?: (input: string) => void // optional, for sending feedback
+    feedback?: (input: string) => void // optional, used to send feedback. [not implemented] (example: clicking send after writing the actual waste type, this will execute the parent function for sending back the image, undo any changes made, and replace this bubble chat with a new one)
 }
 
 export const BubbleChat: React.FC<BubbleChatProps> = ({ type, text, time, image, feedback, isFeedbackNeeded }) => {

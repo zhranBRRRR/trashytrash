@@ -3,13 +3,14 @@
 import { BubbleChat } from "./bubbleChat";
 import { ArrowUp, ImagePlus, Loader, X } from "lucide-react";
 import { JSX, useEffect, useRef, useState } from "react";
-import { fileToImageInput, generateContentWithTools, wasteAnalysisTool } from "@/app/_services/gemini";
+import { extractWasteAnalysisArgs, fileToImageInput, generateContentWithTools, WasteAnalysisArgs, wasteAnalysisTool } from "@/app/_services/gemini";
 import { sleep } from "./_lib/sleep";
 import { chatSystemPrompts } from "./_lib/systemPrompts";
 import { Chats } from "./_types/chats";
 import { addChatDB, getAllChatsDB } from "./_db/chats.db";
-import { getStats } from "./_db/stats.localstorage";
+import { getStats, saveStats } from "./_db/stats.localstorage";
 import { fileToBase64 } from "./_lib/fileToBase64";
+import { addHistoryDB } from "./_db/histories.db";
 
 // Types & Interfaces
 interface AppProps {
@@ -40,7 +41,7 @@ export default function Home(): JSX.Element {
   const [ isWaitingAIRes, setIsWaitingAIRes ] = useState(false)
   const [ selectedImage, setSelectedImage ] = useState<File | null>(null)
   const [ previewUrl, setPreviewUrl ] = useState<string | null>(null)
-
+  const [ lastImage, setLastImage ] = useState<string | null>(null)
 
   // populate the chat for the first time
   useEffect(() => {
@@ -108,6 +109,41 @@ export default function Home(): JSX.Element {
     )
   }
 
+  const analysisHandler = (res: WasteAnalysisArgs | null, imageUrl?: string | null) => {
+    if (res) {
+      console.log(imageUrl)
+
+      // save stats
+        const currentStats = getStats()
+        saveStats({
+          totalEmissionReduction: currentStats.totalEmissionReduction + res.emissionReduction,
+          totalPrice: currentStats.totalPrice + res.price
+        })
+
+        // save history
+        addHistoryDB({
+          type: res.wasteType,
+          emissionReduction: res.emissionReduction.toString(),
+          sellingPrice: res.price.toString(),
+          imageUrl: imageUrl ?? "",
+          timestamp: new Date().toISOString()
+        })
+
+        // reload UI
+        setAppState((prev) => {
+          const stats = getStats()
+
+          return {
+            totalEmissionReduction: stats.totalEmissionReduction,
+            totalPrice: stats.totalPrice,
+            chats: [
+              ...prev.chats
+            ]
+          }
+        })
+    }
+  }
+
   const onFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
@@ -122,10 +158,6 @@ export default function Home(): JSX.Element {
     if (fileInputRef.current) fileInputRef.current.value = ""
   }
 
-  const DELETETHISONLYTEMPORARY = (any: any) => {       // temporary console print out 
-    console.log(any)                                    // for analysis result 
-  }                                                     // that need to be stored in db
-
   const onSendHandler = async () => {
     if ((inputVal === "" && !selectedImage) || !isUserTurn) return
 
@@ -135,9 +167,12 @@ export default function Home(): JSX.Element {
     setInputVal("")
     clearSelectedImage()
     setIsUserTurn(false)
+    
+    let base64Image: string | null = null
 
     if (imageToSend) {
-      const base64Image = await fileToBase64(imageToSend)
+      base64Image = await fileToBase64(imageToSend)
+      setLastImage(base64Image)
       addUserChat(textToSend, base64Image)
     } else {
       addUserChat(textToSend)
@@ -172,16 +207,12 @@ export default function Home(): JSX.Element {
       // if the AI analyze image
       if (res.functionCalls.length != 0 && res.text) {
         addAssistantChat(res.text, true)
-        DELETETHISONLYTEMPORARY({
-          "Type": res.functionCalls[0].args.wasteType,
-          "Emmision Reduction": res.functionCalls[0].args.emissionReduction,
-          "Price": res.functionCalls[0].args.price
-        })
+
+        analysisHandler(extractWasteAnalysisArgs(res), base64Image)
       }
     } else {
       console.error(res.error)    // add error to UI
     }
-
     setIsUserTurn(true)
   }
 

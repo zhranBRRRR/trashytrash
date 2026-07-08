@@ -1,9 +1,9 @@
-interface HistoryCardProps {
+export interface HistoryCardProps {
     type: string;
     emissionReduction: string;
-    sellingPrice: string;
-    imageUrl: string;
-}
+        sellingPrice: string;
+        imageUrl: string;
+    }
 
 export default function HistoryCard({
     type,
@@ -21,11 +21,11 @@ export default function HistoryCard({
                 </div>
                 <div className="flex flex-col">
                     <p className="font-bold text-white/50 text-sm">Reduksi Emisi</p>
-                    <p>{emissionReduction}</p>
+                    <p>{emissionReduction} CO₂-eq</p>
                 </div>
                 <div className="flex flex-col">
                     <p className="font-bold text-white/50 text-sm">Nilai Jual</p>
-                    <p>{sellingPrice}</p>
+                    <p>Rp.{parseInt(sellingPrice).toLocaleString("ID")}</p>
                 </div>
             </div>
         </div>

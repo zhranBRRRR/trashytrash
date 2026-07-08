@@ -85,6 +85,20 @@ export interface ImageInput {
   data: string;
 }
 
+// ─── wasteAnalysisTool argument type ────────────────────────────
+
+/**
+ * Typed arguments for the `recordWasteAnalysis` function call.
+ */
+export interface WasteAnalysisArgs {
+  wasteType: string;
+  category: "recyclable" | "non-recyclable" | "hazardous";
+  confidence: number;
+  emissionReduction: number;
+  price: number;
+  items?: { name: string; count: number }[];
+}
+
 // ─── Result types ───────────────────────────────────────────────
 
 type GenerateContentResult =
@@ -306,6 +320,34 @@ export function extractFunctionCalls(
         args: p.functionCall.args,
       })) ?? []
   );
+}
+
+/**
+ * Extracts and casts `recordWasteAnalysis` arguments from a successful response.
+ * Returns the typed args if the named function call exists, otherwise null.
+ *
+ * @example
+ * ```ts
+ * const args = extractWasteAnalysisArgs(result);
+ * if (args) {
+ *   console.log(args.wasteType, args.price); // fully typed
+ * }
+ * ```
+ */
+export function extractWasteAnalysisArgs(
+  result: GenerateContentResult | GenerateContentWithToolsResult
+): WasteAnalysisArgs | null {
+  if (!result.success) return null;
+
+  const candidate = result.data.candidates?.[0]?.content;
+  const fnCall = candidate?.parts?.find(
+    (p): p is FunctionCallPart =>
+      "functionCall" in p && p.functionCall.name === "recordWasteAnalysis"
+  );
+
+  if (!fnCall) return null;
+
+  return fnCall.functionCall.args as unknown as WasteAnalysisArgs;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────
