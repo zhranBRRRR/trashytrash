@@ -4,20 +4,19 @@ type Stats = {
 }
 
 export const getStats = (): Stats => {
-    let totalEmissionReduction: string | number | null = localStorage.getItem("totalEmissionReduction")
-
-    if (totalEmissionReduction) totalEmissionReduction = parseFloat(totalEmissionReduction as string).toFixed(2)
+    let totalEmissionReduction: string | null = localStorage.getItem("totalEmissionReduction")
     if (!totalEmissionReduction) localStorage.setItem("totalEmissionReduction", "0")
 
-    let totalPrice: string | number | null = localStorage.getItem("totalPrice")
-
-    if (totalPrice) totalPrice = parseInt(totalPrice)
+    let totalPrice: string | null = localStorage.getItem("totalPrice")
     if (!totalPrice) localStorage.setItem("totalPrice", "0")
 
-        totalEmissionReduction = totalEmissionReduction ?? 0
-        totalPrice = totalPrice ?? 0
+    totalEmissionReduction = totalEmissionReduction ?? "0"
+    totalPrice = totalPrice ?? "0"
 
-    return { totalEmissionReduction: totalEmissionReduction as number, totalPrice: totalPrice as number }
+    const numberTotalEmissionReduction = parseFloat(totalEmissionReduction)
+    const numberTotalPrice = parseInt(totalPrice)
+
+    return { totalEmissionReduction: numberTotalEmissionReduction, totalPrice: numberTotalPrice }
 }
 
 export const saveStats = ({ totalEmissionReduction, totalPrice }: Stats) => {

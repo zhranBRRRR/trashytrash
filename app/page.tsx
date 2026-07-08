@@ -133,49 +133,51 @@ export default function Home(): JSX.Element {
   ) => {
     if (res) {
       console.log(imageUrl)
-
+      
       // save stats
-        const currentStats = getStats()
-        saveStats({
-          totalEmissionReduction: currentStats.totalEmissionReduction + res.emissionReduction,
-          totalPrice: currentStats.totalPrice + res.price
-        })
+      const currentStats = getStats()
+        console.log(currentStats.totalEmissionReduction, res.emissionReduction)
+        console.log(currentStats.totalEmissionReduction + res.emissionReduction)
+      saveStats({
+        totalEmissionReduction: currentStats.totalEmissionReduction + res.emissionReduction,
+        totalPrice: currentStats.totalPrice + res.price
+      })
 
-        // save history
-        addHistoryDB({
-          type: res.wasteType,
-          emissionReduction: res.emissionReduction.toString(),
-          sellingPrice: res.price.toString(),
-          imageUrl: imageUrl ?? "",
-          timestamp: new Date().toISOString()
-        })
+      // save history
+      addHistoryDB({
+        type: res.wasteType,
+        emissionReduction: res.emissionReduction.toString(),
+        sellingPrice: res.price.toString(),
+        imageUrl: imageUrl ?? "",
+        timestamp: new Date().toISOString()
+      })
 
-        // reload UI
-        setAppState((prev) => {
-          const stats = getStats()
+      // reload UI
+      setAppState((prev) => {
+        const stats = getStats()
 
-          return {
-            totalEmissionReduction: stats.totalEmissionReduction,
-            totalPrice: stats.totalPrice,
-            chats: [
-              ...prev.chats
-            ]
-          }
-        })
+        return {
+          totalEmissionReduction: stats.totalEmissionReduction,
+          totalPrice: stats.totalPrice,
+          chats: [
+            ...prev.chats
+          ]
+        }
+      })
 
-        await sendFunctionResponse(
-          [wasteAnalysisTool],
-          history,
-          functionCalls.length > 0
-            ? functionCalls
-            : [{
-                name: "recordWasteAnalysis",
-                args: res as unknown as Record<string, unknown>,
-              }],
-          "OK!",
-          "gemini-3.1-flash-lite",
-          chatSystemPrompts
-        )
+      await sendFunctionResponse(
+        [wasteAnalysisTool],
+        history,
+        functionCalls.length > 0
+          ? functionCalls
+          : [{
+              name: "recordWasteAnalysis",
+              args: res as unknown as Record<string, unknown>,
+            }],
+        "OK!",
+        "gemini-3.1-flash-lite",
+        chatSystemPrompts
+      )
     }
   }
 
@@ -341,7 +343,7 @@ export default function Home(): JSX.Element {
       <div className="flex items-center fixed px-5 top-0 inset-0 h-15 w-full bg-background justify-between">
         <p className="text-xl font-semibold text-primary">App Name</p>
         <div className="flex gap-2">
-          <div className="bg-primary px-3 py-1 rounded-full w-fit">{appState.totalEmissionReduction} CO₂-eq</div>
+          <div className="bg-primary px-3 py-1 rounded-full w-fit">{appState.totalEmissionReduction.toFixed(3)} CO₂-eq</div>
           <div className="bg-primary px-3 py-1 rounded-full w-fit">Rp.{appState.totalPrice.toLocaleString("ID")}</div>
         </div>
       </div>
