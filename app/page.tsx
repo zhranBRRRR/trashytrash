@@ -131,13 +131,9 @@ export default function Home(): JSX.Element {
     imageUrl?: string | null,
     history: Chats = []
   ) => {
-    if (res) {
-      console.log(imageUrl)
-      
+    if (res) {      
       // save stats
       const currentStats = getStats()
-        console.log(currentStats.totalEmissionReduction, res.emissionReduction)
-        console.log(currentStats.totalEmissionReduction + res.emissionReduction)
       saveStats({
         totalEmissionReduction: currentStats.totalEmissionReduction + res.emissionReduction,
         totalPrice: currentStats.totalPrice + res.price
@@ -207,7 +203,7 @@ export default function Home(): JSX.Element {
     setIsUserTurn(false)
     
     let base64Image: string | null = null
-        let userChat: Chat
+    let userChat: Chat
 
     if (feedback) {
           userChat = {
@@ -251,7 +247,7 @@ export default function Home(): JSX.Element {
       }
     }
 
-        const historyForAI: Chats = [...historyBeforeAI, userChat]
+    const historyForAI: Chats = [...historyBeforeAI, userChat]
 
     sleep(0.3)                  // for life like feeling
     setIsWaitingAIRes(true)
@@ -273,12 +269,14 @@ export default function Home(): JSX.Element {
         textToSend,
         [wasteAnalysisTool],
         historyForAI,
-        "gemini-3.1-flash-lite"
+        "gemini-3.1-flash-lite",
+        chatSystemPrompts
       )
     }
 
     if (res.success) {
       setIsWaitingAIRes(false)
+      console.log(res)
 
       // if the AI didnt analyze image
       if (res.functionCalls.length == 0 && res.text) {
