@@ -15,6 +15,7 @@ import { AnimatePresence, arc, motion } from "framer-motion";
 import { defaultSpring } from "./_lib/spring";
 import { getClassificationClasses } from "./_lib/getClassificationClasses";
 import axios from "axios";
+import { changeKey, getKey } from "./_lib/key";
 
 // Types & Interfaces
 interface AppProps {
@@ -236,6 +237,25 @@ export default function Home(): JSX.Element {
   }
 
   const onSendHandler = async (optionalText?: string, feedback?: boolean, feedbackReferenceAssistantId?: number) => {
+    // if set key command
+    if (inputVal != "") {
+      const input = inputVal.split(" ")
+      
+      if (input[0] === "/setKey" && input[1]) {
+        changeKey(input[1])
+        addAssistantChat("API Key has been set.", false)
+        setInputVal("")
+        return
+      }
+    }
+
+    // normal AI pipeline
+    if (!getKey() || getKey() === "") {
+      handleAssistantError("Google AI Studio API Key not found. Set it with /setKey {API_KEY}")
+      setInputVal("")
+      return
+    }
+
     if ((inputVal === "" && !selectedImage && !feedback) || !isUserTurn) return
 
     const textToSend = optionalText || inputVal
@@ -459,11 +479,11 @@ export default function Home(): JSX.Element {
     setIsUserTurn(true)
   }
 
-  const handleAssistantError = () => {
+  const handleAssistantError = (text?: string) => {
     addChatDB({
       type: "assistant_error",
       answerTo: parseInt(localStorage.getItem("lastChatIndex") ?? "0"),
-      text: "",
+      text: text ?? "",
       time: new Date().toLocaleTimeString("en-US", {
         hour: "2-digit",
         minute: "2-digit",

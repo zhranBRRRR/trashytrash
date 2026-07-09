@@ -50,11 +50,11 @@ export const BubbleChat: React.FC<BubbleChatProps> = ({ chatId, index, type, tex
                 <p className="font-bold text-base text-[#BEC790] pb-1">{AIname}</p>
             }
 
-            {type === "assistant_error" &&
+            {type === "assistant_error" && text == "" &&
                 <p className="font-bold text-base text-red-200 pb-1">Error</p>
             }
 
-            {type === "assistant_error" &&
+            {type === "assistant_error" && text == "" &&
                 <p>I ran into some error while generating a response for you. <br></br> Wait for a minute and try again! <br></br> <br></br> <span className="text-red-300 text-sm">Look in the console tab to see the detail of the problem.</span></p>
             }
 

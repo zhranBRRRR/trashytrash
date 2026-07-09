@@ -1,5 +1,6 @@
 import axios from "axios";
 import type { Chats } from "../_types/chats";
+import { getKey } from "../_lib/key";
 
 const API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
@@ -202,13 +203,13 @@ export async function generateContent(
   systemPrompt?: string,
   image?: ImageInput
 ): Promise<GenerateContentResult> {
-  const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+  const apiKey = getKey();
 
   if (!apiKey) {
     return {
       success: false,
       error:
-        "Missing Gemini API key. Set NEXT_PUBLIC_GEMINI_API_KEY in your .env.local file.",
+        "Missing Gemini API key. Set it by typing /setKey {API_KEY} in chat.",
     };
   }
 
@@ -277,13 +278,13 @@ export async function generateContentWithTools(
   systemPrompt?: string,
   image?: ImageInput
 ): Promise<GenerateContentWithToolsResult> {
-  const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+  const apiKey = getKey();
 
   if (!apiKey) {
     return {
       success: false,
       error:
-        "Missing Gemini API key. Set NEXT_PUBLIC_GEMINI_API_KEY in your .env.local file.",
+        "Missing Gemini API key. Set it by typing /setKey {API_KEY} in chat.",
     };
   }
 
@@ -346,13 +347,13 @@ export async function sendFunctionResponse(
   model: string = "gemini-2.0-flash",
   systemPrompt?: string,
 ): Promise<GenerateContentResult> {
-  const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+  const apiKey = getKey();
 
   if (!apiKey) {
     return {
       success: false,
       error:
-        "Missing Gemini API key. Set NEXT_PUBLIC_GEMINI_API_KEY in your .env.local file.",
+        "Missing Gemini API key. Set it by typing /setKey {API_KEY} in chat.",
     };
   }
 
