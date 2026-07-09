@@ -368,7 +368,7 @@ export default function Home(): JSX.Element {
           wasteType = res.functionCalls[0].args.waste_type as string
           console.log("AI classificate that image as: ", wasteType)
         }
-      }).catch(() => handleAssistantError())
+      }).catch(() => handleAssistantError("I can't seem to classificate this image for generating a grounded and relevant analysis."))
 
       // do the RAG search based on the type if its existed
       if (wasteType) {
@@ -382,7 +382,7 @@ export default function Home(): JSX.Element {
         }).then((res) => {
           RAGresults = res.data.results as any[]
           console.log("RAG result based on AI classification :", RAGresults)
-        }).catch(() => handleAssistantError())
+        }).catch(() => handleAssistantError("I can't do a search for a relevant up-to-date data in my end. I will judge the image based on my training data only."))
       }
 
       setAIstate("response")
@@ -410,7 +410,7 @@ export default function Home(): JSX.Element {
           wasteType = res.functionCalls[0].args.waste_type as string
           console.log("AI classificate that image as: ", wasteType)
         }
-      }).catch(() => handleAssistantError())
+      }).catch(() => handleAssistantError("I can't seem to classificate this image for generating a grounded and relevant analysis."))
 
       // do the RAG search based on the type if its existed
       if (wasteType) {
@@ -424,7 +424,7 @@ export default function Home(): JSX.Element {
         }).then((res) => {
           RAGresults = res.data.results as any[]
           console.log("RAG result based on AI classification :", RAGresults)
-        }).catch(() => handleAssistantError())
+        }).catch(() => handleAssistantError("I can't do a search for a relevant up-to-date data in my end. I will judge the image based on my training data only."))
       }
 
       setAIstate("response")
@@ -490,9 +490,9 @@ export default function Home(): JSX.Element {
       }
     } else {
       handleAssistantError()
-      console.error(res.error)    // add error to UI
+      console.error(res.error)
     }
-
+    
     setAIstate("default")
     setIsUserTurn(true)
   }
