@@ -517,6 +517,27 @@ export function fileToImageInput(file: File): Promise<ImageInput> {
 
 // ─── Pre-built tool definitions ─────────────────────────────────
 
+export const classificateImageTool: Tool = {
+  functionDeclarations: [
+    {
+      name: "classificateImage",
+      description: "classificate the waste provided based on the given types of wastes.",
+      parameters: {
+        type: "object",
+        properties: {
+          waste_type: {
+            type: "string",
+            description: "the name of the waste."
+          }
+        },
+        required: [
+          "waste_type"
+        ]
+      }
+    }
+  ]
+}
+
 /**
  * Pre-built tool for analysing waste images.
  * The model will call `recordWasteAnalysis` with structured data about

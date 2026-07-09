@@ -3,7 +3,7 @@
 import { BubbleChat } from "./bubbleChat";
 import { ArrowUp, ImagePlus, Loader, X } from "lucide-react";
 import { JSX, useEffect, useRef, useState } from "react";
-import { extractWasteAnalysisArgs, fileToImageInput, generateContentWithTools, sendFunctionResponse, WasteAnalysisArgs, wasteAnalysisTool, type FunctionCall, type ImageInput } from "@/app/_services/gemini";
+import { classificateImageTool, extractWasteAnalysisArgs, fileToImageInput, generateContentWithTools, sendFunctionResponse, WasteAnalysisArgs, wasteAnalysisTool, type FunctionCall, type ImageInput } from "@/app/_services/gemini";
 import { sleep } from "./_lib/sleep";
 import { chatSystemPrompts } from "./_lib/systemPrompts";
 import { Chat, Chats } from "./_types/chats";
@@ -13,6 +13,8 @@ import { fileToBase64 } from "./_lib/fileToBase64";
 import { addHistoryDB, deleteHistoryByAssistantChatIdDB } from "./_db/histories.db";
 import { AnimatePresence, arc, motion } from "framer-motion";
 import { defaultSpring } from "./_lib/spring";
+import { getClassificationClasses } from "./_lib/getClassificationClasses";
+import axios from "axios";
 
 // Types & Interfaces
 interface AppProps {
@@ -24,7 +26,6 @@ interface AppProps {
 // initiator
 const chats = await getAllChatsDB()
 const stats = getStats()
-console.log(chats)
 
 const data = {
   totalEmissionReduction: stats.totalEmissionReduction,
@@ -95,8 +96,6 @@ export default function Home(): JSX.Element {
   }, [setAppState])
 
   const addUserChat = (text: string, image?: string, feedback?: boolean) => {
-    console.log("adding user chat with answer to: ", parseInt(localStorage.getItem("lastChatIndex") ?? "0"))
-
     addChatDB({
       type: "user",
       text: text,
@@ -109,7 +108,6 @@ export default function Home(): JSX.Element {
       }),
       answerTo: parseInt(localStorage.getItem("lastChatIndex") ?? "0")
     }).then((chatIndex) => {
-      console.log("appending last chat index to: ", chatIndex)
       localStorage.setItem("lastChatIndex", chatIndex.toString())
 
       getAllChatsDB().then((chats) => {
@@ -125,7 +123,6 @@ export default function Home(): JSX.Element {
   }
 
   const addAssistantChat = async (text: string, isAnalysis: boolean, emissionReduction?: number, price?: number): Promise<number> => {
-    console.log("adding assistant chat with answer to: ", parseInt(localStorage.getItem("lastChatIndex") ?? "0"))
     const chatIndex = await addChatDB({
       type: "assistant",
       text: text,
@@ -142,7 +139,6 @@ export default function Home(): JSX.Element {
       }
     })
 
-    console.log("appending last chat index to: ", chatIndex)
     localStorage.setItem("lastChatIndex", chatIndex.toString())
 
     getAllChatsDB().then((chats) => {
@@ -304,19 +300,83 @@ export default function Home(): JSX.Element {
     let res
     const imageInputFromFeedback = feedbackImage ? dataUrlToImageInput(feedbackImage) : null
 
+    // waste type according to AI
+    let wasteType: null | string = null
+    let RAGresults: null | any[] = null
+
+    // if there is image to send
     if (imageToSend) {
       const imageInput = await fileToImageInput(imageToSend)
+      // tell the AI to classificate the image first
+      await generateContentWithTools(
+        `classificate this waste image based on this types of waste: [${getClassificationClasses()}]`,
+        [classificateImageTool],
+        historyForAI,
+        "gemini-3.1-flash-lite",
+        chatSystemPrompts,
+        imageInput
+      ).then((res) => {
+        if (res.success) {
+          wasteType = res.functionCalls[0].args.waste_type as string
+          console.log("AI classificate that image as: ", wasteType)
+        }
+      })
+
+      // do the RAG search based on the type if its existed
+      if (wasteType) {
+        await axios.post("/api/rag-search", {
+          query: wasteType
+        }, {
+          headers: {
+            "Content-Type": "application/json"
+          }
+        }).then((res) => {
+          RAGresults = res.data.results as any[]
+          console.log("RAG result based on AI classification :", RAGresults)
+        })
+      }
+
       res = await generateContentWithTools(
-        textToSend || "Analyse this waste image",
+        (textToSend || "Analyse this waste") + `. You need to analyze this image, Do so by looking at this RAG results for a reference of the emmision reduction and the price. results: [${RAGresults}]`,
         [wasteAnalysisTool],
         historyForAI,
         "gemini-3.1-flash-lite",
         chatSystemPrompts,
         imageInput
       )
+    // if the user do feedback
     } else if (imageInputFromFeedback) {
+      // tell the AI to classificate the image first
+      await generateContentWithTools(
+        `classificate this waste image based on this types of waste: [${getClassificationClasses()}]`,
+        [classificateImageTool],
+        historyForAI,
+        "gemini-3.1-flash-lite",
+        chatSystemPrompts,
+        imageInputFromFeedback
+      ).then((res) => {
+        if (res.success) {
+          wasteType = res.functionCalls[0].args.waste_type as string
+          console.log("AI classificate that image as: ", wasteType)
+        }
+      })
+
+      // do the RAG search based on the type if its existed
+      if (wasteType) {
+        await axios.post("/api/rag-search", {
+          query: wasteType
+        }, {
+          headers: {
+            "Content-Type": "application/json"
+          }
+        }).then((res) => {
+          RAGresults = res.data.results as any[]
+          console.log("RAG result based on AI classification :", RAGresults)
+        })
+      }
+
       res = await generateContentWithTools(
-        textToSend,
+        textToSend + `| System: even though you made a mistake, still analyze this image by using the RAG results as reference. results:[${RAGresults}]`,
         [wasteAnalysisTool],
         historyForAI,
         "gemini-3.1-flash-lite",
