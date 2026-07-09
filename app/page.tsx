@@ -16,6 +16,7 @@ import { defaultSpring } from "./_lib/spring";
 import { getClassificationClasses } from "./_lib/getClassificationClasses";
 import axios from "axios";
 import { changeKey, getKey } from "./_lib/key";
+import { clearAllData, wipeDB } from "./_db/init.db";
 
 // Types & Interfaces
 interface AppProps {
@@ -246,14 +247,22 @@ export default function Home(): JSX.Element {
   }
 
   const onSendHandler = async (optionalText?: string, feedback?: boolean, feedbackReferenceAssistantId?: number) => {
-    // if set key command
     if (inputVal != "") {
       const input = inputVal.split(" ")
       
+      // if set key command
       if (input[0] === "/setKey" && input[1]) {
         changeKey(input[1])
         addAssistantChat("API Key has been set.", false)
         setInputVal("")
+        return
+      }
+
+      // if clear command
+      if (input[0] === "/clear") {
+        await clearAllData()
+        setInputVal("")
+        window.location.reload()
         return
       }
     }
