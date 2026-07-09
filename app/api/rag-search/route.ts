@@ -1,12 +1,16 @@
 import { NextRequest } from "next/server";
-import { pipeline } from "@xenova/transformers";
+import { env, pipeline } from "@huggingface/transformers";
 import { findMostSimilar, type SimilarityResult } from "../../_lib/rag";
 
 let pipe: any = null;
 
+env.backends.onnx.wasm!.numThreads = 1;
+env.allowLocalModels = false;
+
 async function getPipe() {
   if (!pipe) {
-    pipe = await pipeline("feature-extraction", "Xenova/paraphrase-multilingual-MiniLM-L12-v2");
+    pipe = await pipeline("feature-extraction", "Xenova/paraphrase-multilingual-MiniLM-L12-v2", {
+    });
   }
   return pipe;
 }
