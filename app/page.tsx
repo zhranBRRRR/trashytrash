@@ -24,25 +24,20 @@ interface AppProps {
   chats: Chats
 }
 
-// initiator
-const chats = await getAllChatsDB()
-const stats = getStats()
-console.log(chats)
-
-const data = {
-  totalEmissionReduction: stats.totalEmissionReduction,
-  totalPrice: stats.totalPrice,
-  chats: chats
-} as AppProps
-
 export default function Home(): JSX.Element {
 
   const inputRef = useRef<HTMLInputElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const chatContainerRef = useRef<HTMLDivElement | null>(null)
 
+  const [ hydrated, setHydrated ] = useState(false)
+
   const [ inputVal, setInputVal ] = useState("")
-  const [ appState, setAppState ] = useState<AppProps>(data)
+  const [ appState, setAppState ] = useState<AppProps>({
+    totalEmissionReduction: 0,
+    totalPrice: 0,
+    chats: []
+  })
   const [ isUserTurn, setIsUserTurn ] = useState(true)
   const [ isWaitingAIRes, setIsWaitingAIRes ] = useState(false)
   const [ selectedImage, setSelectedImage ] = useState<File | null>(null)
@@ -69,6 +64,19 @@ export default function Home(): JSX.Element {
     }
   }
 
+  // load persisted data on mount (client-only)
+  useEffect(() => {
+    getAllChatsDB().then((chats) => {
+      const stats = getStats()
+      setAppState({
+        totalEmissionReduction: stats.totalEmissionReduction,
+        totalPrice: stats.totalPrice,
+        chats
+      })
+      setHydrated(true)
+    })
+  }, [])
+
   useEffect(() => {
     const container = chatContainerRef.current
     if (!container) return
@@ -81,6 +89,7 @@ export default function Home(): JSX.Element {
 
   // populate the chat for the first time
   useEffect(() => {
+    if(!hydrated) return
     if (appState.chats.length == 0) {
       addChatDB({
         type: "assistant",
@@ -103,7 +112,7 @@ export default function Home(): JSX.Element {
         })
       })
     }
-  }, [setAppState])
+  }, [hydrated])
 
   const addUserChat = (text: string, image?: string, feedback?: boolean) => {
     addChatDB({

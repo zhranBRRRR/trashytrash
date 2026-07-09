@@ -35,7 +35,7 @@ export const BubbleChat: React.FC<BubbleChatProps> = ({ chatId, index, type, tex
         })
     }, [index])
 
-    const AIname = "Jarvis"
+    const AIname = "PilahBot"
     const secondStyle = 
         type == "user" ? "bg-secondary rounded-l-xl" 
         : type == "assistant" ? "bg-primary rounded-r-xl"

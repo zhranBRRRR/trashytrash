@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { getAllHistoriesDB } from "../_db/histories.db";
 import HistoryCard from "./HistoryCard";
 
@@ -10,33 +11,6 @@ type HistoryEntry = {
     imageUrl: string;
     timestamp: string;
 };
-
-const data = await getAllHistoriesDB()
-console.log(data)
-
-const historyData: HistoryEntry[] = [
-    {
-        type: "Plastik",
-        emissionReduction: "10 kg CO2",
-        sellingPrice: "Rp 100.000",
-        imageUrl: "https://picsum.photos/500",
-        timestamp: new Date().toISOString()
-    },
-    {
-        type: "Kertas",
-        emissionReduction: "5 kg CO2",
-        sellingPrice: "Rp 50.000",
-        imageUrl: "https://picsum.photos/500?1",
-        timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-    },
-    {
-        type: "Logam",
-        emissionReduction: "15 kg CO2",
-        sellingPrice: "Rp 150.000",
-        imageUrl: "https://picsum.photos/500?2",
-        timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-    }
-];
 
 function getDateMarker(timestamp: string) {
     const entryDate = new Date(timestamp);
@@ -63,6 +37,14 @@ function getDateMarker(timestamp: string) {
 }
 
 export default function History() {
+    const [data, setData] = useState<HistoryEntry[]>([])
+
+    useEffect(() => {
+        getAllHistoriesDB().then((entries) => {
+            setData(entries)
+        })
+    }, [])
+
     const groupedHistory = data.reduce<Array<{ label: string; items: HistoryEntry[] }>>(
         (groups, entry) => {
             const label = getDateMarker(entry.timestamp);

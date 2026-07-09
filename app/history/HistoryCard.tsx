@@ -13,7 +13,7 @@ export default function HistoryCard({
 }: HistoryCardProps) {
     return (
         <div className="flex flex-col w-full rounded-2xl overflow-hidden">
-            <img src={imageUrl} className="h-24 object-cover" />
+            <img src={imageUrl !== "" ? imageUrl : "https://i.pinimg.com/originals/05/b4/fb/05b4fbc3f169175e6deb97b3977175b6.jpg"} className="h-24 object-cover" />
             <div className="flex justify-between p-2 px-4 bg-[#889545] text-white">
                 <div className="flex flex-col">
                     <p className="font-bold text-white/50 text-sm">Tipe</p>
