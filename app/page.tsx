@@ -26,6 +26,7 @@ interface AppProps {
 // initiator
 const chats = await getAllChatsDB()
 const stats = getStats()
+console.log(chats)
 
 const data = {
   totalEmissionReduction: stats.totalEmissionReduction,
@@ -48,6 +49,14 @@ export default function Home(): JSX.Element {
   const [ lastImage, setLastImage ] = useState<string | null>(null)     // this is unused maybe
 
   const [aboutToFeedback, setAboutToFeedback] = useState(false)
+
+  const [ AIstate, setAIstate ] = useState<"default" | "classificate" | "RAG" | "response">("default")
+
+  const AIstateUI = 
+    AIstate === "classificate" ? "Classificating"
+    : AIstate === "RAG" ? "Searching for relevant data"
+    : AIstate === "response" ? "Calculating"
+    : "Writing"
 
   const dataUrlToImageInput = (dataUrl: string): ImageInput | null => {
     const match = dataUrl.match(/^data:(.+);base64,(.+)$/)
@@ -308,6 +317,7 @@ export default function Home(): JSX.Element {
     if (imageToSend) {
       const imageInput = await fileToImageInput(imageToSend)
       // tell the AI to classificate the image first
+      setAIstate("classificate")
       await generateContentWithTools(
         `classificate this waste image based on this types of waste: [${getClassificationClasses()}]`,
         [classificateImageTool],
@@ -320,10 +330,11 @@ export default function Home(): JSX.Element {
           wasteType = res.functionCalls[0].args.waste_type as string
           console.log("AI classificate that image as: ", wasteType)
         }
-      })
+      }).catch(() => handleAssistantError())
 
       // do the RAG search based on the type if its existed
       if (wasteType) {
+        setAIstate("RAG")
         await axios.post("/api/rag-search", {
           query: wasteType
         }, {
@@ -333,9 +344,10 @@ export default function Home(): JSX.Element {
         }).then((res) => {
           RAGresults = res.data.results as any[]
           console.log("RAG result based on AI classification :", RAGresults)
-        })
+        }).catch(() => handleAssistantError())
       }
 
+      setAIstate("response")
       res = await generateContentWithTools(
         (textToSend || "Analyse this waste") + `. You need to analyze this image, Do so by looking at this RAG results for a reference of the emmision reduction and the price. results: [${RAGresults}]`,
         [wasteAnalysisTool],
@@ -347,6 +359,7 @@ export default function Home(): JSX.Element {
     // if the user do feedback
     } else if (imageInputFromFeedback) {
       // tell the AI to classificate the image first
+      setAIstate("classificate")
       await generateContentWithTools(
         `classificate this waste image based on this types of waste: [${getClassificationClasses()}]`,
         [classificateImageTool],
@@ -359,10 +372,11 @@ export default function Home(): JSX.Element {
           wasteType = res.functionCalls[0].args.waste_type as string
           console.log("AI classificate that image as: ", wasteType)
         }
-      })
+      }).catch(() => handleAssistantError())
 
       // do the RAG search based on the type if its existed
       if (wasteType) {
+        setAIstate("RAG")
         await axios.post("/api/rag-search", {
           query: wasteType
         }, {
@@ -372,9 +386,10 @@ export default function Home(): JSX.Element {
         }).then((res) => {
           RAGresults = res.data.results as any[]
           console.log("RAG result based on AI classification :", RAGresults)
-        })
+        }).catch(() => handleAssistantError())
       }
 
+      setAIstate("response")
       res = await generateContentWithTools(
         textToSend + `| System: even though you made a mistake, still analyze this image by using the RAG results as reference. results:[${RAGresults}]`,
         [wasteAnalysisTool],
@@ -384,6 +399,7 @@ export default function Home(): JSX.Element {
         imageInputFromFeedback
       )
     } else {
+      setAIstate("default")
       res = await generateContentWithTools(
         textToSend,
         [wasteAnalysisTool],
@@ -435,8 +451,39 @@ export default function Home(): JSX.Element {
         )
       }
     } else {
+      handleAssistantError()
       console.error(res.error)    // add error to UI
     }
+
+    setAIstate("default")
+    setIsUserTurn(true)
+  }
+
+  const handleAssistantError = () => {
+    addChatDB({
+      type: "assistant_error",
+      answerTo: parseInt(localStorage.getItem("lastChatIndex") ?? "0"),
+      text: "",
+      time: new Date().toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }),
+    }).then((chatIndex) => {
+      localStorage.setItem("lastChatIndex", chatIndex.toString())
+      getAllChatsDB().then((chats) => {
+        setAppState((prev) => {
+            return {
+              ...prev,
+              chats: chats
+            }
+          })
+        })
+      }
+    )
+  
+    setIsWaitingAIRes(false)
+    setAIstate("default")
     setIsUserTurn(true)
   }
 
@@ -485,7 +532,7 @@ export default function Home(): JSX.Element {
             key={chat.id ?? index}
             chatId={chat.id}
             index={chat.answerTo ?? 0}
-            type={chat.type === "user" ? "user" : "assistant"}
+            type={chat.type === "user" ? "user" : chat.type === "assistant" ? "assistant" : "assistant_error"}
             text={chat.text}
             time={chat.time}
             image={chat.image}
@@ -502,7 +549,7 @@ export default function Home(): JSX.Element {
     // width and height can be changed later
     <div className="w-screen h-screen flex justify-center">
       <div className="flex items-center fixed px-5 top-0 inset-0 h-15 w-full max-w-lg mx-auto bg-background justify-between">
-        <p className="text-xl font-semibold text-primary">App Name</p>
+        <p className="text-xl font-semibold text-primary">PilahYuk</p>
         <div className="flex gap-2">
           <div className="bg-primary px-3 py-1 rounded-full w-fit">{appState.totalEmissionReduction.toFixed(3)} CO₂-eq</div>
           <div className="bg-primary px-3 py-1 rounded-full w-fit">Rp.{appState.totalPrice.toLocaleString("ID")}</div>
@@ -512,12 +559,27 @@ export default function Home(): JSX.Element {
       <div ref={chatContainerRef} className="w-full max-w-lg flex flex-col gap-y-3 lg:w-300 h-full pt-17 pb-40 mx-5 sm:mx-10 md:mx-15 lg:mx-auto overflow-y-scroll px-2">
         {ChatsContainer}
 
-        {isWaitingAIRes &&        
-          <div className="w-full h-fit flex gap-2">
-            <Loader className="animate-[spin_3s_linear_infinite] text-primary" />
-            <p className="text-primary font-semibold">Thinking...</p>
-          </div>
-        }
+        <AnimatePresence>
+          {isWaitingAIRes &&        
+            <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="w-full h-fit flex gap-2">
+              <Loader className="animate-[spin_3s_linear_infinite] text-primary" />
+              <AnimatePresence mode="wait">
+                <motion.p
+                key={AIstate}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="text-primary font-semibold">{AIstateUI}...</motion.p>
+              </AnimatePresence>
+            </motion.div>
+          }
+        </AnimatePresence>
       </div>
 
       <div className="px-3 fixed w-full max-w-lg lg:bottom-1 bottom-20 mb-4">

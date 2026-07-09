@@ -1,6 +1,6 @@
 export type Chat = {
   id?: number
-  type: "assistant" | "user"
+  type: "assistant" | "user" | "assistant_error"
   text: string
   image?: string
   feedback?: boolean

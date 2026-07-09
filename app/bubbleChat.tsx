@@ -12,7 +12,7 @@ import { getChatByIndexDB } from "./_db/chats.db";
 interface BubbleChatProps {
     chatId?: number
     index?: number          // this index, i believe is the answerTo number in the chats, that mean this index refer to the index of the chat before
-    type: "user" | "assistant"
+    type: "user" | "assistant" | "assistant_error"
     text?: string
     time?: string // expect a parsed time (yes right?)
     image?: string  // user image kalo upload
@@ -36,7 +36,10 @@ export const BubbleChat: React.FC<BubbleChatProps> = ({ chatId, index, type, tex
     }, [index])
 
     const AIname = "Jarvis"
-    const secondStyle = type == "user" ? "bg-secondary rounded-l-xl" : "bg-primary rounded-r-xl"
+    const secondStyle = 
+        type == "user" ? "bg-secondary rounded-l-xl" 
+        : type == "assistant" ? "bg-primary rounded-r-xl"
+        : "bg-red-500 rounded-r-xl"
     const mainStyle = type == "user" ? "self-end" : "self-start"
 
 
@@ -45,6 +48,14 @@ export const BubbleChat: React.FC<BubbleChatProps> = ({ chatId, index, type, tex
         <div className="flex flex-col w-full">
             {type === "assistant" &&
                 <p className="font-bold text-base text-[#BEC790] pb-1">{AIname}</p>
+            }
+
+            {type === "assistant_error" &&
+                <p className="font-bold text-base text-red-200 pb-1">Error</p>
+            }
+
+            {type === "assistant_error" &&
+                <p>I ran into some error while generating a response for you. <br></br> Wait for a minute and try again! <br></br> <br></br> <span className="text-red-300 text-sm">Look in the console tab to see the detail of the problem.</span></p>
             }
 
             <div className="text-[#FFEBF4] whitespace-pre-wrap">
@@ -57,7 +68,7 @@ export const BubbleChat: React.FC<BubbleChatProps> = ({ chatId, index, type, tex
                 <img className="max-w-80 py-2" src={image} />   // idk about base64 so this is temporary 
             }
 
-            <p className="self-end text-[#546014] opacity-90 mt-1">{time}</p>
+            <p className={`self-end opacity-90 mt-1 ${type === "assistant_error" ? "text-red-100" : "text-[#546014]"}`}>{time}</p>
         </div>
     )
 
